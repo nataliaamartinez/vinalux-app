@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import ClientesPageClient from './ClientesPageClient'
+import ClientesPageClient from './Clientes-Page-Client'
 
 export default function ClientesPage() {
   return (
