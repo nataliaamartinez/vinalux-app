@@ -14,6 +14,7 @@ type Producto = {
   nombre: string
   precio_compra: number | null
   precio_venta: number | null
+  stock: number | null
 }
 
 type Pedido = {
@@ -90,7 +91,7 @@ export default function PedidosPageClient() {
       supabase.from('clientes').select('id, nombre').order('nombre'),
       supabase
         .from('productos')
-        .select('id, nombre, precio_compra, precio_venta')
+        .select('id, nombre, precio_compra, precio_venta, stock')
         .order('nombre'),
     ])
 
@@ -200,30 +201,85 @@ export default function PedidosPageClient() {
     setSaving(true)
     setError(null)
 
+    const cantidadNumero = formData.cantidad ? Number(formData.cantidad) : 1
+    const precioVentaNumero = formData.precio_venta
+      ? Number(formData.precio_venta)
+      : 0
+    const costeNumero = formData.coste ? Number(formData.coste) : 0
+
     const payload = {
       cliente_id: formData.cliente_id || null,
       producto_id: formData.producto_id || null,
-      cantidad: formData.cantidad ? Number(formData.cantidad) : 1,
-      precio_venta: formData.precio_venta ? Number(formData.precio_venta) : 0,
-      coste: formData.coste ? Number(formData.coste) : 0,
+      cantidad: cantidadNumero,
+      precio_venta: precioVentaNumero,
+      coste: costeNumero,
       estado: formData.estado || 'pendiente',
       prioridad: formData.prioridad || 'media',
       fecha_entrega: formData.fecha_entrega || null,
       notas: formData.notas || null,
     }
 
-    let result
+    if (!editingId) {
+      const productoSeleccionado = productos.find(
+        (producto) => producto.id === formData.producto_id
+      )
 
-    if (editingId) {
-      result = await supabase.from('pedidos').update(payload).eq('id', editingId)
+      if (!productoSeleccionado) {
+        setError('Debes seleccionar un producto válido.')
+        setSaving(false)
+        return
+      }
+
+      const stockActual = productoSeleccionado.stock ?? 0
+
+      if (cantidadNumero <= 0) {
+        setError('La cantidad debe ser mayor que 0.')
+        setSaving(false)
+        return
+      }
+
+      if (cantidadNumero > stockActual) {
+        setError(
+          `No hay suficiente stock para "${productoSeleccionado.nombre}". Stock disponible: ${stockActual}.`
+        )
+        setSaving(false)
+        return
+      }
+
+      const insertRes = await supabase.from('pedidos').insert([payload])
+
+      if (insertRes.error) {
+        setError(insertRes.error.message)
+        setSaving(false)
+        return
+      }
+
+      const nuevoStock = stockActual - cantidadNumero
+
+      const stockRes = await supabase
+        .from('productos')
+        .update({ stock: nuevoStock })
+        .eq('id', productoSeleccionado.id)
+
+      if (stockRes.error) {
+        setError(
+          `El pedido se guardó, pero no se pudo actualizar el stock: ${stockRes.error.message}`
+        )
+        setSaving(false)
+        await cargarDatos()
+        return
+      }
     } else {
-      result = await supabase.from('pedidos').insert([payload])
-    }
+      const updateRes = await supabase
+        .from('pedidos')
+        .update(payload)
+        .eq('id', editingId)
 
-    if (result.error) {
-      setError(result.error.message)
-      setSaving(false)
-      return
+      if (updateRes.error) {
+        setError(updateRes.error.message)
+        setSaving(false)
+        return
+      }
     }
 
     cerrarFormulario()
@@ -303,6 +359,17 @@ export default function PedidosPageClient() {
   const costeNumero = Number(formData.coste) || 0
   const totalFormulario = cantidadNumero * precioVentaNumero
   const beneficioFormulario = (precioVentaNumero - costeNumero) * cantidadNumero
+
+  const productoSeleccionado = productos.find(
+    (producto) => producto.id === formData.producto_id
+  )
+
+  const stockDisponible = productoSeleccionado?.stock ?? 0
+  const cantidadSuperaStock =
+    !editingId &&
+    formData.producto_id !== '' &&
+    cantidadNumero > 0 &&
+    cantidadNumero > stockDisponible
 
   function botonFiltroClase(valor: string) {
     return filtroEstado === valor
@@ -572,6 +639,21 @@ export default function PedidosPageClient() {
                 </p>
               </div>
 
+              {formData.producto_id && (
+                <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
+                  <p className="text-sm text-slate-500">Stock disponible</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {stockDisponible}
+                  </p>
+
+                  {cantidadSuperaStock && (
+                    <p className="mt-2 text-sm font-medium text-red-600">
+                      La cantidad del pedido supera el stock disponible.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="md:col-span-2">
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Observaciones
@@ -589,7 +671,7 @@ export default function PedidosPageClient() {
               <div className="md:col-span-2 flex gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || cantidadSuperaStock}
                   className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   {saving
