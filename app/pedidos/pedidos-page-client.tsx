@@ -196,28 +196,35 @@ export default function PedidosPageClient() {
     setFormData(initialFormData)
   }
 
-  async function actualizarStockProducto(productoId: string, nuevoStock: number) {
-    const { data, error } = await supabase
-      .from('productos')
-      .update({ stock: nuevoStock })
-      .eq('id', productoId)
-      .select()
+ async function actualizarStockProducto(productoId: string, nuevoStock: number) {
+  const { data, error } = await supabase
+    .from('productos')
+    .update({ stock: nuevoStock })
+    .eq('id', productoId)
+    .select('id, nombre, stock')
 
-    console.log('Actualizando stock:', {
-      productoId,
-      nuevoStock,
-      data,
+  if (error) {
+    return {
+      data: null,
       error,
-    })
-
-    if (error) {
-      console.error('Error actualizando stock:', error)
-    } else {
-      console.log('Stock actualizado correctamente:', data)
     }
-
-    return { data, error }
   }
+
+  if (!data || data.length === 0) {
+    return {
+      data: null,
+      error: {
+        message:
+          'No se actualizó ninguna fila en productos. Revisa policies, el id del producto o el nombre de la columna stock.',
+      },
+    }
+  }
+
+  return {
+    data,
+    error: null,
+  }
+}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
