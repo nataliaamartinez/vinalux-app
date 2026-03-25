@@ -1,4 +1,5 @@
 'use client'
+
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -24,6 +25,11 @@ type FormDataType = {
   stock_minimo: string
 }
 
+type ToastType = {
+  message: string
+  type: 'success' | 'error'
+} | null
+
 const initialFormData: FormDataType = {
   nombre: '',
   categoria: '',
@@ -47,6 +53,10 @@ export default function ProductosPageClient() {
   const [busqueda, setBusqueda] = useState('')
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
 
+  const [toast, setToast] = useState<ToastType>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   async function cargarProductos() {
     setLoading(true)
     setError(null)
@@ -66,9 +76,23 @@ export default function ProductosPageClient() {
     setLoading(false)
   }
 
+  function mostrarToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type })
+  }
+
   useEffect(() => {
     cargarProductos()
   }, [])
+
+  useEffect(() => {
+    if (!toast) return
+
+    const timer = setTimeout(() => {
+      setToast(null)
+    }, 2500)
+
+    return () => clearTimeout(timer)
+  }, [toast])
 
   useEffect(() => {
     if (!highlightedId) return
@@ -161,6 +185,7 @@ export default function ProductosPageClient() {
 
     if (result.error) {
       setError(result.error.message)
+      mostrarToast('Ha ocurrido un error al guardar el producto.', 'error')
       setSaving(false)
       return
     }
@@ -168,25 +193,46 @@ export default function ProductosPageClient() {
     cerrarFormulario()
     setSaving(false)
     await cargarProductos()
+
+    mostrarToast(
+      editingId ? 'Producto actualizado correctamente.' : 'Producto guardado correctamente.',
+      'success'
+    )
   }
 
-  async function borrarProducto(id: string, nombre: string) {
-    const confirmado = window.confirm(
-      `¿Seguro que quieres borrar el producto "${nombre}"?`
-    )
+  function pedirConfirmacionBorrado(producto: Producto) {
+    setDeleteTarget(producto)
+  }
 
-    if (!confirmado) return
+  function cerrarModalBorrado() {
+    if (deleting) return
+    setDeleteTarget(null)
+  }
 
+  async function confirmarBorrado() {
+    if (!deleteTarget) return
+
+    setDeleting(true)
     setError(null)
 
-    const { error } = await supabase.from('productos').delete().eq('id', id)
+    const { error } = await supabase
+      .from('productos')
+      .delete()
+      .eq('id', deleteTarget.id)
 
     if (error) {
       setError(error.message)
+      mostrarToast('No se pudo borrar el producto.', 'error')
+      setDeleting(false)
       return
     }
 
+    const nombreBorrado = deleteTarget.nombre
+    setDeleteTarget(null)
+    setDeleting(false)
+
     await cargarProductos()
+    mostrarToast(`Producto "${nombreBorrado}" borrado correctamente.`, 'success')
   }
 
   const productosFiltrados = useMemo(() => {
@@ -210,6 +256,55 @@ export default function ProductosPageClient() {
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-7xl">
+        {toast && (
+          <div className="fixed right-4 top-4 z-50">
+            <div
+              className={`rounded-2xl px-4 py-3 shadow-lg border text-sm font-medium ${
+                toast.type === 'success'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {toast.message}
+            </div>
+          </div>
+        )}
+
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+              <h3 className="text-xl font-bold text-slate-900">
+                Confirmar borrado
+              </h3>
+              <p className="mt-3 text-slate-600">
+                ¿Seguro que quieres borrar el producto{' '}
+                <span className="font-semibold text-slate-900">
+                  "{deleteTarget.nombre}"
+                </span>
+                ?
+              </p>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={cerrarModalBorrado}
+                  disabled={deleting}
+                  className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={confirmarBorrado}
+                  disabled={deleting}
+                  className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleting ? 'Borrando...' : 'Sí, borrar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Vinalux</p>
@@ -460,9 +555,7 @@ export default function ProductosPageClient() {
                             Editar
                           </button>
                           <button
-                            onClick={() =>
-                              borrarProducto(producto.id, producto.nombre)
-                            }
+                            onClick={() => pedirConfirmacionBorrado(producto)}
                             className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200"
                           >
                             Borrar
