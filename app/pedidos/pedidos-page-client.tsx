@@ -197,20 +197,27 @@ export default function PedidosPageClient() {
   }
 
   async function actualizarStockProducto(productoId: string, nuevoStock: number) {
-  const result = await supabase
-    .from('productos')
-    .update({ stock: nuevoStock })
-    .eq('id', productoId)
-    .select()
+    const { data, error } = await supabase
+      .from('productos')
+      .update({ stock: nuevoStock })
+      .eq('id', productoId)
+      .select()
 
-  console.log('Actualizando stock:', {
-    productoId,
-    nuevoStock,
-    result,
-  })
+    console.log('Actualizando stock:', {
+      productoId,
+      nuevoStock,
+      data,
+      error,
+    })
 
-  return result
-}
+    if (error) {
+      console.error('Error actualizando stock:', error)
+    } else {
+      console.log('Stock actualizado correctamente:', data)
+    }
+
+    return { data, error }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -271,6 +278,11 @@ export default function PedidosPageClient() {
       }
 
       const nuevoStock = stockActual - cantidadNumero
+
+      console.log('Producto seleccionado:', productoSeleccionado)
+      console.log('Cantidad pedida:', cantidadNumero)
+      console.log('Stock actual:', stockActual)
+      console.log('Nuevo stock:', nuevoStock)
 
       const stockRes = await actualizarStockProducto(
         productoSeleccionado.id,
@@ -564,7 +576,8 @@ export default function PedidosPageClient() {
       pedidoOriginal.producto_id === formData.producto_id &&
       productoSeleccionado
     ) {
-      stockDisponible = (productoSeleccionado.stock ?? 0) + (pedidoOriginal.cantidad ?? 0)
+      stockDisponible =
+        (productoSeleccionado.stock ?? 0) + (pedidoOriginal.cantidad ?? 0)
     }
   }
 
