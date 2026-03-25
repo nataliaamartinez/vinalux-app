@@ -46,6 +46,7 @@ export default function ProductosPageClient() {
 
   const [productos, setProductos] = useState<Producto[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingText, setLoadingText] = useState('Cargando productos...')
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -57,9 +58,13 @@ export default function ProductosPageClient() {
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  async function cargarProductos() {
+  async function cargarProductos(showRefreshingMessage = false) {
     setLoading(true)
     setError(null)
+
+    setLoadingText(
+      showRefreshingMessage ? 'Actualizando productos...' : 'Cargando productos...'
+    )
 
     const { data, error } = await supabase
       .from('productos')
@@ -81,7 +86,7 @@ export default function ProductosPageClient() {
   }
 
   useEffect(() => {
-    cargarProductos()
+    cargarProductos(false)
   }, [])
 
   useEffect(() => {
@@ -173,6 +178,7 @@ export default function ProductosPageClient() {
     }
 
     let result
+    const isEditing = Boolean(editingId)
 
     if (editingId) {
       result = await supabase
@@ -192,10 +198,12 @@ export default function ProductosPageClient() {
 
     cerrarFormulario()
     setSaving(false)
-    await cargarProductos()
+    await cargarProductos(true)
 
     mostrarToast(
-      editingId ? 'Producto actualizado correctamente.' : 'Producto guardado correctamente.',
+      isEditing
+        ? 'Producto actualizado correctamente.'
+        : 'Producto guardado correctamente.',
       'success'
     )
   }
@@ -231,7 +239,7 @@ export default function ProductosPageClient() {
     setDeleteTarget(null)
     setDeleting(false)
 
-    await cargarProductos()
+    await cargarProductos(true)
     mostrarToast(`Producto "${nombreBorrado}" borrado correctamente.`, 'success')
   }
 
@@ -259,7 +267,7 @@ export default function ProductosPageClient() {
         {toast && (
           <div className="fixed right-4 top-4 z-50">
             <div
-              className={`rounded-2xl px-4 py-3 shadow-lg border text-sm font-medium ${
+              className={`rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg ${
                 toast.type === 'success'
                   ? 'border-green-200 bg-green-50 text-green-700'
                   : 'border-red-200 bg-red-50 text-red-700'
@@ -316,7 +324,7 @@ export default function ProductosPageClient() {
 
           <button
             onClick={abrirNuevoProducto}
-            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-slate-800"
           >
             + Nuevo producto
           </button>
@@ -330,7 +338,7 @@ export default function ProductosPageClient() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre, categoría o proveedor..."
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
           />
         </div>
 
@@ -341,14 +349,14 @@ export default function ProductosPageClient() {
         )}
 
         {showForm && (
-          <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm ring-1 ring-slate-100">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">
                 {editingId ? 'Editar producto' : 'Nuevo producto'}
               </h2>
               <button
                 onClick={cerrarFormulario}
-                className="rounded-xl px-3 py-2 text-sm text-slate-500 hover:bg-slate-100"
+                className="rounded-xl px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100"
               >
                 Cerrar
               </button>
@@ -364,7 +372,7 @@ export default function ProductosPageClient() {
                   value={formData.nombre}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. Taza personalizada"
                 />
               </div>
@@ -377,7 +385,7 @@ export default function ProductosPageClient() {
                   name="categoria"
                   value={formData.categoria}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. Tazas"
                 />
               </div>
@@ -390,7 +398,7 @@ export default function ProductosPageClient() {
                   name="proveedor"
                   value={formData.proveedor}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. Proveedor A"
                 />
               </div>
@@ -405,7 +413,7 @@ export default function ProductosPageClient() {
                   step="0.01"
                   value={formData.precio_compra}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. 3.50"
                 />
               </div>
@@ -420,7 +428,7 @@ export default function ProductosPageClient() {
                   step="0.01"
                   value={formData.precio_venta}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. 12.00"
                 />
               </div>
@@ -434,7 +442,7 @@ export default function ProductosPageClient() {
                   type="number"
                   value={formData.stock}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. 10"
                 />
               </div>
@@ -448,16 +456,16 @@ export default function ProductosPageClient() {
                   type="number"
                   value={formData.stock_minimo}
                   onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   placeholder="Ej. 2"
                 />
               </div>
 
-              <div className="md:col-span-2 flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 md:col-span-2">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-slate-800 disabled:opacity-50"
                 >
                   {saving
                     ? 'Guardando...'
@@ -479,8 +487,18 @@ export default function ProductosPageClient() {
         )}
 
         {loading && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-            <p className="text-slate-500">Cargando productos...</p>
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 shadow-sm">
+            <div className="flex flex-col items-center justify-center gap-4 text-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
+              <div>
+                <p className="text-base font-semibold text-slate-900">
+                  {loadingText}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Espera un momento mientras cargamos la información.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -550,13 +568,13 @@ export default function ProductosPageClient() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => abrirEdicion(producto)}
-                            className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+                            className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-200"
                           >
                             Editar
                           </button>
                           <button
                             onClick={() => pedirConfirmacionBorrado(producto)}
-                            className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200"
+                            className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-200"
                           >
                             Borrar
                           </button>
