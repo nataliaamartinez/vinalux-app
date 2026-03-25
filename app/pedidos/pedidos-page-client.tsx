@@ -197,11 +197,20 @@ export default function PedidosPageClient() {
   }
 
   async function actualizarStockProducto(productoId: string, nuevoStock: number) {
-    return await supabase
-      .from('productos')
-      .update({ stock: nuevoStock })
-      .eq('id', productoId)
-  }
+  const result = await supabase
+    .from('productos')
+    .update({ stock: nuevoStock })
+    .eq('id', productoId)
+    .select()
+
+  console.log('Actualizando stock:', {
+    productoId,
+    nuevoStock,
+    result,
+  })
+
+  return result
+}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
