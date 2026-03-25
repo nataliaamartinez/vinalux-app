@@ -196,6 +196,13 @@ export default function PedidosPageClient() {
     setFormData(initialFormData)
   }
 
+  async function actualizarStockProducto(productoId: string, nuevoStock: number) {
+    return await supabase
+      .from('productos')
+      .update({ stock: nuevoStock })
+      .eq('id', productoId)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -206,6 +213,12 @@ export default function PedidosPageClient() {
       ? Number(formData.precio_venta)
       : 0
     const costeNumero = formData.coste ? Number(formData.coste) : 0
+
+    if (cantidadNumero <= 0) {
+      setError('La cantidad debe ser mayor que 0.')
+      setSaving(false)
+      return
+    }
 
     const payload = {
       cliente_id: formData.cliente_id || null,
@@ -232,12 +245,6 @@ export default function PedidosPageClient() {
 
       const stockActual = productoSeleccionado.stock ?? 0
 
-      if (cantidadNumero <= 0) {
-        setError('La cantidad debe ser mayor que 0.')
-        setSaving(false)
-        return
-      }
-
       if (cantidadNumero > stockActual) {
         setError(
           `No hay suficiente stock para "${productoSeleccionado.nombre}". Stock disponible: ${stockActual}.`
@@ -256,10 +263,10 @@ export default function PedidosPageClient() {
 
       const nuevoStock = stockActual - cantidadNumero
 
-      const stockRes = await supabase
-        .from('productos')
-        .update({ stock: nuevoStock })
-        .eq('id', productoSeleccionado.id)
+      const stockRes = await actualizarStockProducto(
+        productoSeleccionado.id,
+        nuevoStock
+      )
 
       if (stockRes.error) {
         setError(
@@ -270,15 +277,144 @@ export default function PedidosPageClient() {
         return
       }
     } else {
-      const updateRes = await supabase
-        .from('pedidos')
-        .update(payload)
-        .eq('id', editingId)
+      const pedidoOriginal = pedidos.find((pedido) => pedido.id === editingId)
 
-      if (updateRes.error) {
-        setError(updateRes.error.message)
+      if (!pedidoOriginal) {
+        setError('No se ha encontrado el pedido original.')
         setSaving(false)
         return
+      }
+
+      const productoOriginalId = pedidoOriginal.producto_id
+      const cantidadOriginal = pedidoOriginal.cantidad ?? 0
+      const productoNuevoId = formData.producto_id
+
+      if (!productoNuevoId) {
+        setError('Debes seleccionar un producto válido.')
+        setSaving(false)
+        return
+      }
+
+      const productoNuevo = productos.find(
+        (producto) => producto.id === productoNuevoId
+      )
+
+      if (!productoNuevo) {
+        setError('No se ha encontrado el producto seleccionado.')
+        setSaving(false)
+        return
+      }
+
+      if (productoOriginalId === productoNuevoId) {
+        const productoActual = productos.find(
+          (producto) => producto.id === productoNuevoId
+        )
+
+        if (!productoActual) {
+          setError('No se ha encontrado el producto actual.')
+          setSaving(false)
+          return
+        }
+
+        const stockVisible = productoActual.stock ?? 0
+        const stockDisponibleReal = stockVisible + cantidadOriginal
+        const nuevoStock = stockDisponibleReal - cantidadNumero
+
+        if (nuevoStock < 0) {
+          setError(
+            `No hay suficiente stock para "${productoActual.nombre}". Stock disponible real: ${stockDisponibleReal}.`
+          )
+          setSaving(false)
+          return
+        }
+
+        const updateRes = await supabase
+          .from('pedidos')
+          .update(payload)
+          .eq('id', editingId)
+
+        if (updateRes.error) {
+          setError(updateRes.error.message)
+          setSaving(false)
+          return
+        }
+
+        const stockRes = await actualizarStockProducto(
+          productoActual.id,
+          nuevoStock
+        )
+
+        if (stockRes.error) {
+          setError(
+            `El pedido se actualizó, pero no se pudo recalcular el stock: ${stockRes.error.message}`
+          )
+          setSaving(false)
+          await cargarDatos()
+          return
+        }
+      } else {
+        const productoOriginal = productos.find(
+          (producto) => producto.id === productoOriginalId
+        )
+
+        if (!productoOriginal) {
+          setError('No se ha encontrado el producto original.')
+          setSaving(false)
+          return
+        }
+
+        const stockOriginalActual = productoOriginal.stock ?? 0
+        const stockNuevoActual = productoNuevo.stock ?? 0
+
+        const stockOriginalRepuesto = stockOriginalActual + cantidadOriginal
+        const stockNuevoFinal = stockNuevoActual - cantidadNumero
+
+        if (stockNuevoFinal < 0) {
+          setError(
+            `No hay suficiente stock para "${productoNuevo.nombre}". Stock disponible: ${stockNuevoActual}.`
+          )
+          setSaving(false)
+          return
+        }
+
+        const updateRes = await supabase
+          .from('pedidos')
+          .update(payload)
+          .eq('id', editingId)
+
+        if (updateRes.error) {
+          setError(updateRes.error.message)
+          setSaving(false)
+          return
+        }
+
+        const devolverStockRes = await actualizarStockProducto(
+          productoOriginal.id,
+          stockOriginalRepuesto
+        )
+
+        if (devolverStockRes.error) {
+          setError(
+            `El pedido se actualizó, pero no se pudo devolver stock al producto anterior: ${devolverStockRes.error.message}`
+          )
+          setSaving(false)
+          await cargarDatos()
+          return
+        }
+
+        const restarStockRes = await actualizarStockProducto(
+          productoNuevo.id,
+          stockNuevoFinal
+        )
+
+        if (restarStockRes.error) {
+          setError(
+            `El pedido se actualizó, pero no se pudo descontar stock del nuevo producto: ${restarStockRes.error.message}`
+          )
+          setSaving(false)
+          await cargarDatos()
+          return
+        }
       }
     }
 
@@ -291,10 +427,51 @@ export default function PedidosPageClient() {
     const confirmado = window.confirm('¿Seguro que quieres borrar este pedido?')
     if (!confirmado) return
 
-    const { error } = await supabase.from('pedidos').delete().eq('id', id)
+    const pedido = pedidos.find((item) => item.id === id)
 
-    if (error) {
-      setError(error.message)
+    if (!pedido) {
+      setError('No se ha encontrado el pedido.')
+      return
+    }
+
+    const productoId = pedido.producto_id
+    const cantidad = pedido.cantidad ?? 0
+
+    if (!productoId) {
+      const { error } = await supabase.from('pedidos').delete().eq('id', id)
+
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      await cargarDatos()
+      return
+    }
+
+    const producto = productos.find((item) => item.id === productoId)
+
+    if (!producto) {
+      setError('No se ha encontrado el producto asociado al pedido.')
+      return
+    }
+
+    const deleteRes = await supabase.from('pedidos').delete().eq('id', id)
+
+    if (deleteRes.error) {
+      setError(deleteRes.error.message)
+      return
+    }
+
+    const nuevoStock = (producto.stock ?? 0) + cantidad
+
+    const stockRes = await actualizarStockProducto(producto.id, nuevoStock)
+
+    if (stockRes.error) {
+      setError(
+        `El pedido se borró, pero no se pudo devolver el stock: ${stockRes.error.message}`
+      )
+      await cargarDatos()
       return
     }
 
@@ -343,7 +520,11 @@ export default function PedidosPageClient() {
     }, 0)
 
     const beneficioEstimado = pedidos.reduce((acc, pedido) => {
-      return acc + calcularBeneficio(pedido.cantidad, pedido.precio_venta, pedido.coste)
+      return acc + calcularBeneficio(
+        pedido.cantidad,
+        pedido.precio_venta,
+        pedido.coste
+      )
     }, 0)
 
     return {
@@ -364,9 +545,21 @@ export default function PedidosPageClient() {
     (producto) => producto.id === formData.producto_id
   )
 
-  const stockDisponible = productoSeleccionado?.stock ?? 0
+  let stockDisponible = productoSeleccionado?.stock ?? 0
+
+  if (editingId) {
+    const pedidoOriginal = pedidos.find((pedido) => pedido.id === editingId)
+
+    if (
+      pedidoOriginal &&
+      pedidoOriginal.producto_id === formData.producto_id &&
+      productoSeleccionado
+    ) {
+      stockDisponible = (productoSeleccionado.stock ?? 0) + (pedidoOriginal.cantidad ?? 0)
+    }
+  }
+
   const cantidadSuperaStock =
-    !editingId &&
     formData.producto_id !== '' &&
     cantidadNumero > 0 &&
     cantidadNumero > stockDisponible
