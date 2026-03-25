@@ -1,7 +1,10 @@
-import { connection } from 'next/server'
+import { Suspense } from 'react'
 import ProductosPageClient from './productos-page-client'
 
-export default async function ProductosPage() {
-  await connection()
-  return <ProductosPageClient />
+export default function ProductosPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Cargando productos...</div>}>
+      <ProductosPageClient />
+    </Suspense>
+  )
 }
