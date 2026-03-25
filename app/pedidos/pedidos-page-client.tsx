@@ -291,19 +291,22 @@ export default function PedidosPageClient() {
       console.log('Stock actual:', stockActual)
       console.log('Nuevo stock:', nuevoStock)
 
-      const stockRes = await actualizarStockProducto(
-        productoSeleccionado.id,
-        nuevoStock
-      )
+     const stockRes = await actualizarStockProducto(
+  productoSeleccionado.id,
+  nuevoStock
+)
 
-      if (stockRes.error) {
-        setError(
-          `El pedido se guardó, pero no se pudo actualizar el stock: ${stockRes.error.message}`
-        )
-        setSaving(false)
-        await cargarDatos()
-        return
-      }
+if (stockRes.error) {
+  setError(
+    `El pedido se guardó, pero no se pudo actualizar el stock: ${stockRes.error.message}`
+  )
+  alert(
+    `El pedido se guardó, pero no se pudo actualizar el stock:\n${stockRes.error.message}`
+  )
+  setSaving(false)
+  await cargarDatos()
+  return
+}
     } else {
       const pedidoOriginal = pedidos.find((pedido) => pedido.id === editingId)
 
