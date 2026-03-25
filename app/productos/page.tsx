@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import ProductosPageClient from './productos-page_Client'
+import ProductosPageClient from './productos-page-client'
 
 export default function ProductosPage() {
   return (
