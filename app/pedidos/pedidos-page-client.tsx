@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -79,11 +79,13 @@ export default function PedidosPageClient() {
     const [pedidosRes, clientesRes, productosRes] = await Promise.all([
       supabase
         .from('pedidos')
-        .select(`
+        .select(
+          `
           *,
           clientes(nombre),
           productos(nombre)
-        `)
+        `
+        )
         .order('created_at', { ascending: false }),
       supabase.from('clientes').select('id, nombre').order('nombre'),
       supabase
@@ -250,10 +252,57 @@ export default function PedidosPageClient() {
     return 'bg-green-100 text-green-700'
   }
 
+  function formatearEuros(valor: number) {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(valor)
+  }
+
+  function calcularTotal(cantidad: number | null, precioVenta: number | null) {
+    return (cantidad ?? 0) * (precioVenta ?? 0)
+  }
+
+  function calcularBeneficio(
+    cantidad: number | null,
+    precioVenta: number | null,
+    coste: number | null
+  ) {
+    return ((precioVenta ?? 0) - (coste ?? 0)) * (cantidad ?? 0)
+  }
+
   const pedidosFiltrados =
     filtroEstado === 'todos'
       ? pedidos
       : pedidos.filter((pedido) => pedido.estado === filtroEstado)
+
+  const resumen = useMemo(() => {
+    const totalPedidos = pedidos.length
+    const pedidosPendientes = pedidos.filter(
+      (pedido) => pedido.estado === 'pendiente'
+    ).length
+
+    const totalFacturado = pedidos.reduce((acc, pedido) => {
+      return acc + calcularTotal(pedido.cantidad, pedido.precio_venta)
+    }, 0)
+
+    const beneficioEstimado = pedidos.reduce((acc, pedido) => {
+      return acc + calcularBeneficio(pedido.cantidad, pedido.precio_venta, pedido.coste)
+    }, 0)
+
+    return {
+      totalPedidos,
+      pedidosPendientes,
+      totalFacturado,
+      beneficioEstimado,
+    }
+  }, [pedidos])
+
+  const cantidadNumero = Number(formData.cantidad) || 0
+  const precioVentaNumero = Number(formData.precio_venta) || 0
+  const costeNumero = Number(formData.coste) || 0
+  const totalFormulario = cantidadNumero * precioVentaNumero
+  const beneficioFormulario = (precioVentaNumero - costeNumero) * cantidadNumero
 
   function botonFiltroClase(valor: string) {
     return filtroEstado === valor
@@ -279,6 +328,40 @@ export default function PedidosPageClient() {
           >
             + Nuevo pedido
           </button>
+        </div>
+
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Total pedidos</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {resumen.totalPedidos}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Pedidos pendientes
+            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {resumen.pedidosPendientes}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Total facturado</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {formatearEuros(resumen.totalFacturado)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Beneficio estimado
+            </p>
+            <p className="mt-2 text-3xl font-bold text-emerald-600">
+              {formatearEuros(resumen.beneficioEstimado)}
+            </p>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
@@ -388,6 +471,7 @@ export default function PedidosPageClient() {
                 <input
                   name="cantidad"
                   type="number"
+                  min="1"
                   value={formData.cantidad}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
@@ -410,7 +494,7 @@ export default function PedidosPageClient() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Coste
+                  Coste unitario
                 </label>
                 <input
                   name="coste"
@@ -468,6 +552,24 @@ export default function PedidosPageClient() {
                   <option value="alta">Alta</option>
                   <option value="urgente">Urgente</option>
                 </select>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Total del pedido</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">
+                  {formatearEuros(totalFormulario)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Beneficio estimado</p>
+                <p
+                  className={`mt-1 text-2xl font-bold ${
+                    beneficioFormulario >= 0 ? 'text-emerald-600' : 'text-red-600'
+                  }`}
+                >
+                  {formatearEuros(beneficioFormulario)}
+                </p>
               </div>
 
               <div className="md:col-span-2">
@@ -570,6 +672,31 @@ export default function PedidosPageClient() {
                 </span>
               </div>
 
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Total</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {formatearEuros(
+                    calcularTotal(
+                      selectedPedido.cantidad,
+                      selectedPedido.precio_venta
+                    )
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Beneficio</p>
+                <p className="mt-1 font-semibold text-emerald-600">
+                  {formatearEuros(
+                    calcularBeneficio(
+                      selectedPedido.cantidad,
+                      selectedPedido.precio_venta,
+                      selectedPedido.coste
+                    )
+                  )}
+                </p>
+              </div>
+
               <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
                 <p className="text-sm text-slate-500">Observaciones</p>
                 <p className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
@@ -609,6 +736,8 @@ export default function PedidosPageClient() {
                     <th className="px-6 py-4 font-semibold">Estado</th>
                     <th className="px-6 py-4 font-semibold">Prioridad</th>
                     <th className="px-6 py-4 font-semibold">Entrega</th>
+                    <th className="px-6 py-4 font-semibold">Total</th>
+                    <th className="px-6 py-4 font-semibold">Beneficio</th>
                     <th className="px-6 py-4 font-semibold">Acciones</th>
                   </tr>
                 </thead>
@@ -639,6 +768,20 @@ export default function PedidosPageClient() {
                         </span>
                       </td>
                       <td className="px-6 py-4">{pedido.fecha_entrega || '-'}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {formatearEuros(
+                          calcularTotal(pedido.cantidad, pedido.precio_venta)
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-emerald-600">
+                        {formatearEuros(
+                          calcularBeneficio(
+                            pedido.cantidad,
+                            pedido.precio_venta,
+                            pedido.coste
+                          )
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           <button
