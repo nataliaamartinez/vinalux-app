@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Search,
   CalendarDays,
+  Wallet,
 } from 'lucide-react'
 
 type PedidoIngreso = {
@@ -264,6 +265,12 @@ export default async function Home() {
       icon: Box,
       description: 'Añadir producto al catálogo',
     },
+    {
+      title: 'Finanzas',
+      href: '/finanzas',
+      icon: Wallet,
+      description: 'Ver ingresos y beneficios',
+    },
   ]
 
   const busquedaRapida = [
@@ -410,7 +417,7 @@ export default async function Home() {
             Accesos rápidos
           </h2>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {accesosRapidos.map((item) => {
               const Icon = item.icon
 
