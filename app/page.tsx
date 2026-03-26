@@ -353,7 +353,6 @@ export default async function Home() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-10">
           <p className="text-sm font-medium text-white">Vinalux</p>
-          <h1 className="mt-2 text-4xl font-bold text-white">DASHBOARD PRUEBA VINALUX</h1>
           <h1 className="mt-2 text-4xl font-bold text-white">Dashboard</h1>
           <p className="mt-3 text-slate-300">
             Resumen general de tu negocio.
