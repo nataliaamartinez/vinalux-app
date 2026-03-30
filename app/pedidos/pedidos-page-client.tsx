@@ -19,12 +19,16 @@ type Producto = {
 
 type Pedido = {
   id: string
+  numero_pedido: string | null
   cliente_id: string | null
   producto_id: string | null
   cantidad: number | null
   precio_venta: number | null
   coste: number | null
+  beneficio: number | null
   estado: string | null
+  estado_pago: 'pendiente' | 'pagado' | null
+  fecha_pago: string | null
   prioridad: string | null
   fecha_entrega: string | null
   notas: string | null
@@ -39,6 +43,7 @@ type FormDataType = {
   precio_venta: string
   coste: string
   estado: string
+  estado_pago: 'pendiente' | 'pagado'
   prioridad: string
   fecha_entrega: string
   notas: string
@@ -51,6 +56,7 @@ const initialFormData: FormDataType = {
   precio_venta: '',
   coste: '',
   estado: 'pendiente',
+  estado_pago: 'pendiente',
   prioridad: 'media',
   fecha_entrega: '',
   notas: '',
@@ -175,17 +181,18 @@ export default function PedidosPageClient() {
   function abrirEdicion(pedido: Pedido) {
     setEditingId(pedido.id)
     setFormData({
-      cliente_id: pedido.cliente_id || '',
-      producto_id: pedido.producto_id || '',
-      cantidad: pedido.cantidad !== null ? String(pedido.cantidad) : '1',
-      precio_venta:
-        pedido.precio_venta !== null ? String(pedido.precio_venta) : '',
-      coste: pedido.coste !== null ? String(pedido.coste) : '',
-      estado: pedido.estado || 'pendiente',
-      prioridad: pedido.prioridad || 'media',
-      fecha_entrega: pedido.fecha_entrega || '',
-      notas: pedido.notas || '',
-    })
+  cliente_id: pedido.cliente_id || '',
+  producto_id: pedido.producto_id || '',
+  cantidad: pedido.cantidad !== null ? String(pedido.cantidad) : '1',
+  precio_venta:
+    pedido.precio_venta !== null ? String(pedido.precio_venta) : '',
+  coste: pedido.coste !== null ? String(pedido.coste) : '',
+  estado: pedido.estado || 'pendiente',
+  estado_pago: pedido.estado_pago || 'pendiente',
+  prioridad: pedido.prioridad || 'media',
+  fecha_entrega: pedido.fecha_entrega || '',
+  notas: pedido.notas || '',
+})
     setShowForm(true)
     setError(null)
   }
@@ -232,28 +239,34 @@ export default function PedidosPageClient() {
     setError(null)
 
     const cantidadNumero = formData.cantidad ? Number(formData.cantidad) : 1
-    const precioVentaNumero = formData.precio_venta
-      ? Number(formData.precio_venta)
-      : 0
-    const costeNumero = formData.coste ? Number(formData.coste) : 0
+const precioVentaNumero = formData.precio_venta
+  ? Number(formData.precio_venta)
+  : 0
+const costeNumero = formData.coste ? Number(formData.coste) : 0
+const beneficioNumero = (precioVentaNumero - costeNumero) * cantidadNumero
 
     if (cantidadNumero <= 0) {
       setError('La cantidad debe ser mayor que 0.')
       setSaving(false)
       return
     }
-
-    const payload = {
-      cliente_id: formData.cliente_id || null,
-      producto_id: formData.producto_id || null,
-      cantidad: cantidadNumero,
-      precio_venta: precioVentaNumero,
-      coste: costeNumero,
-      estado: formData.estado || 'pendiente',
-      prioridad: formData.prioridad || 'media',
-      fecha_entrega: formData.fecha_entrega || null,
-      notas: formData.notas || null,
-    }
+const payload = {
+  cliente_id: formData.cliente_id || null,
+  producto_id: formData.producto_id || null,
+  cantidad: cantidadNumero,
+  precio_venta: precioVentaNumero,
+  coste: costeNumero,
+  beneficio: beneficioNumero,
+  estado: formData.estado || 'pendiente',
+  estado_pago: formData.estado_pago || 'pendiente',
+  fecha_pago:
+    formData.estado_pago === 'pagado'
+      ? new Date().toISOString().split('T')[0]
+      : null,
+  prioridad: formData.prioridad || 'media',
+  fecha_entrega: formData.fecha_entrega || null,
+  notas: formData.notas || null,
+}
 
     if (!editingId) {
       const productoSeleccionado = productos.find(
@@ -828,6 +841,21 @@ if (stockRes.error) {
                   <option value="entregado">Entregado</option>
                 </select>
               </div>
+
+              <div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Estado de pago
+  </label>
+  <select
+    name="estado_pago"
+    value={formData.estado_pago}
+    onChange={handleChange}
+    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+  >
+    <option value="pendiente">Pendiente</option>
+    <option value="pagado">Pagado</option>
+  </select>
+</div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">

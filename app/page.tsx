@@ -118,16 +118,25 @@ export default async function Home() {
       .order('created_at', { ascending: false })
       .limit(5),
     supabase
-      .from('pedidos')
-      .select(
-        `
-        id,
-        estado,
-        prioridad,
-        clientes(nombre),
-        productos(nombre)
-      `
-      )
+  .from('pedidos')
+  .select(`
+    id,
+    numero_pedido,
+    cliente_id,
+    producto_id,
+    cantidad,
+    precio_venta,
+    coste,
+    beneficio,
+    estado,
+    estado_pago,
+    fecha_pago,
+    prioridad,
+    fecha_entrega,
+    notas,
+    clientes(nombre),
+    productos(nombre)
+  `)
       .eq('prioridad', 'urgente')
       .order('created_at', { ascending: false })
       .limit(5),
