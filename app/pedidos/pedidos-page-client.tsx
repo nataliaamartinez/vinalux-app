@@ -1100,15 +1100,26 @@ if (stockRes.error) {
                       </td>
                       <td className="px-6 py-4">{pedido.cantidad ?? 0}</td>
                       <td className="px-6 py-4">{pedido.estado || '-'}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${colorPrioridad(
-                            pedido.prioridad
-                          )}`}
-                        >
-                          {pedido.prioridad || '-'}
-                        </span>
-                      </td>
+<td className="px-6 py-4">
+  <span
+    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+      pedido.estado_pago === 'pagado'
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-yellow-100 text-yellow-700'
+    }`}
+  >
+    {pedido.estado_pago || 'pendiente'}
+  </span>
+</td>
+<td className="px-6 py-4">
+  <span
+    className={`rounded-full px-3 py-1 text-xs font-semibold ${colorPrioridad(
+      pedido.prioridad
+    )}`}
+  >
+    {pedido.prioridad || '-'}
+  </span>
+</td>
                       <td className="px-6 py-4">{pedido.fecha_entrega || '-'}</td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
                         {formatearEuros(
