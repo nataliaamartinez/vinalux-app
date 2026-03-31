@@ -258,10 +258,12 @@ const payload = {
   coste: costeNumero,
   estado: formData.estado || 'pendiente',
   estado_pago: formData.estado_pago || 'pendiente',
-  fecha_pago:
-    formData.estado_pago === 'pagado'
+ fecha_pago:
+  formData.estado_pago === 'pagado'
+    ? formData.estado_pago === 'pagado' && !editingId
       ? new Date().toISOString().split('T')[0]
-      : null,
+      : undefined
+    : null,
   prioridad: formData.prioridad || 'media',
   fecha_entrega: formData.fecha_entrega || null,
   notas: formData.notas || null,
@@ -1063,18 +1065,19 @@ if (stockRes.error) {
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead className="bg-slate-100 text-sm text-slate-600">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold">Cliente</th>
-                    <th className="px-6 py-4 font-semibold">Producto</th>
-                    <th className="px-6 py-4 font-semibold">Cantidad</th>
-                    <th className="px-6 py-4 font-semibold">Estado</th>
-                    <th className="px-6 py-4 font-semibold">Prioridad</th>
-                    <th className="px-6 py-4 font-semibold">Entrega</th>
-                    <th className="px-6 py-4 font-semibold">Total</th>
-                    <th className="px-6 py-4 font-semibold">Beneficio</th>
-                    <th className="px-6 py-4 font-semibold">Acciones</th>
-                  </tr>
-                </thead>
+  <tr>
+    <th className="px-6 py-4 font-semibold">Cliente</th>
+    <th className="px-6 py-4 font-semibold">Producto</th>
+    <th className="px-6 py-4 font-semibold">Cantidad</th>
+    <th className="px-6 py-4 font-semibold">Estado</th>
+    <th className="px-6 py-4 font-semibold">Pago</th>
+    <th className="px-6 py-4 font-semibold">Prioridad</th>
+    <th className="px-6 py-4 font-semibold">Entrega</th>
+    <th className="px-6 py-4 font-semibold">Total</th>
+    <th className="px-6 py-4 font-semibold">Beneficio</th>
+    <th className="px-6 py-4 font-semibold">Acciones</th>
+  </tr>
+</thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {pedidosFiltrados.map((pedido) => (
                     <tr
@@ -1084,9 +1087,14 @@ if (stockRes.error) {
                         highlightedId === pedido.id ? 'bg-yellow-100' : ''
                       }`}
                     >
-                      <td className="px-6 py-4 font-medium text-slate-900">
-                        {pedido.clientes?.nombre || '-'}
-                      </td>
+                     <td className="px-6 py-4 font-medium text-slate-900">
+  <div className="flex items-center gap-2">
+    {pedido.estado_pago === 'pagado' && (
+      <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+    )}
+    <span>{pedido.clientes?.nombre || '-'}</span>
+  </div>
+</td>
                       <td className="px-6 py-4">
                         {pedido.productos?.nombre || '-'}
                       </td>
