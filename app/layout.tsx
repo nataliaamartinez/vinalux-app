@@ -11,6 +11,8 @@ import {
   Search,
   Menu,
   Sparkles,
+    Wallet, // 👈 AÑADE ESTO
+
 } from 'lucide-react'
 import SidebarLink from '@/components/sidebar-link'
 
@@ -55,6 +57,9 @@ export default function RootLayout({
                   <SidebarLink href="/productos" icon={<Box size={18} />}>
                     Productos
                   </SidebarLink>
+                  <SidebarLink href="/finanzas" icon={<Wallet size={18} />}>
+  Finanzas
+</SidebarLink>
                   <SidebarLink href="/clientes" icon={<Users size={18} />}>
                     Clientes
                   </SidebarLink>
@@ -90,6 +95,9 @@ export default function RootLayout({
               <SidebarLink href="/pedidos" icon={<Package size={18} />}>
                 Pedidos
               </SidebarLink>
+              <SidebarLink href="/finanzas" icon={<Wallet size={18} />}>
+  Finanzas
+</SidebarLink>
               <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                 Presupuestos
               </SidebarLink>
