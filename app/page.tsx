@@ -1,876 +1,576 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import {
   Box,
-  Users,
-  Package,
-  FileText,
-  Clock3,
-  CheckCircle2,
-  BadgeEuro,
-  Plus,
-  AlertTriangle,
-  Search,
-  CalendarDays,
   Wallet,
+  ShoppingCart,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Scale,
+  ArrowRight,
 } from 'lucide-react'
 
-type PedidoIngreso = {
+type Pedido = {
+  id: string
+  numero_pedido: string | null
   cantidad: number | null
   precio_venta: number | null
-  created_at?: string | null
+  estado: string | null
+  estado_pago: string | null
+  fecha_entrega: string | null
+  created_at: string | null
+  clientes: { nombre: string } | null
+  productos: { nombre: string } | null
 }
 
-type ProductoStock = {
+type MovimientoFinanza = {
+  id: string
+  tipo: 'ingreso' | 'gasto' | null
+  importe: number | null
+  fecha: string | null
+  descripcion: string | null
+  referencia: string | null
+  cliente_proveedor: string | null
+  estado: string | null
+  created_at: string | null
+}
+
+type Producto = {
   id: string
   nombre: string | null
   stock: number | null
   stock_minimo: number | null
 }
 
-function getLast6Months() {
-  const meses = []
-  const hoy = new Date()
+export default function DashboardPage() {
+  const [pedidos, setPedidos] = useState<Pedido[]>([])
+  const [finanzas, setFinanzas] = useState<MovimientoFinanza[]>([])
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  for (let i = 5; i >= 0; i--) {
-    const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
-    const key = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-    const label = fecha.toLocaleDateString('es-ES', {
-      month: 'short',
-      year: '2-digit',
-    })
-    meses.push({ key, label })
+  async function cargarDatos() {
+    setLoading(true)
+    setError(null)
+
+    const [pedidosRes, finanzasRes, productosRes] = await Promise.all([
+      supabase
+        .from('pedidos')
+        .select(
+          `
+          id,
+          numero_pedido,
+          cantidad,
+          precio_venta,
+          estado,
+          estado_pago,
+          fecha_entrega,
+          created_at,
+          clientes(nombre),
+          productos(nombre)
+        `
+        )
+        .order('created_at', { ascending: false })
+        .limit(8),
+
+      supabase
+        .from('finanzas')
+        .select(
+          `
+          id,
+          tipo,
+          importe,
+          fecha,
+          descripcion,
+          referencia,
+          cliente_proveedor,
+          estado,
+          created_at
+        `
+        )
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(8),
+
+      supabase
+        .from('productos')
+        .select('id, nombre, stock, stock_minimo')
+        .order('nombre'),
+    ])
+
+    if (pedidosRes.error) {
+      setError(pedidosRes.error.message)
+    } else {
+setPedidos((pedidosRes.data as any[]) || [])    }
+
+    if (finanzasRes.error) {
+      setError(finanzasRes.error.message)
+    } else {
+      setFinanzas((finanzasRes.data as MovimientoFinanza[]) || [])
+    }
+
+    if (productosRes.error) {
+      setError(productosRes.error.message)
+    } else {
+      setProductos((productosRes.data as Producto[]) || [])
+    }
+
+    setLoading(false)
   }
 
-  return meses
-}
+  useEffect(() => {
+    cargarDatos()
+  }, [])
 
-export default async function Home() {
-  const ahora = new Date()
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10)
+  function formatearEuros(valor: number) {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(valor)
+  }
 
-  const hace6Meses = new Date(ahora.getFullYear(), ahora.getMonth() - 5, 1)
-    .toISOString()
-    .slice(0, 10)
+  function formatearFecha(fecha: string | null) {
+    if (!fecha) return '-'
+    return new Date(fecha).toLocaleDateString('es-ES')
+  }
 
-  const [
-    productosRes,
-    clientesRes,
-    pedidosRes,
-    presupuestosRes,
-    pedidosPendientesRes,
-    pedidosEntregadosRes,
-    presupuestosAceptadosRes,
-    ingresosRes,
-    ultimosPedidosRes,
-    ultimosPresupuestosRes,
-    pedidosUrgentesRes,
-    productosStockRes,
-    pedidosMesRes,
-    presupuestosMesRes,
-    pedidosGraficaRes,
-  ] = await Promise.all([
-    supabase.from('productos').select('*', { count: 'exact', head: true }),
-    supabase.from('clientes').select('*', { count: 'exact', head: true }),
-    supabase.from('pedidos').select('*', { count: 'exact', head: true }),
-    supabase.from('presupuestos').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('pedidos')
-      .select('*', { count: 'exact', head: true })
-      .eq('estado', 'pendiente'),
-    supabase
-      .from('pedidos')
-      .select('*', { count: 'exact', head: true })
-      .eq('estado', 'entregado'),
-    supabase
-      .from('presupuestos')
-      .select('*', { count: 'exact', head: true })
-      .eq('estado', 'aceptado'),
-    supabase.from('pedidos').select('cantidad, precio_venta, created_at'),
-    supabase
-      .from('pedidos')
-      .select(
-        `
-        id,
-        estado,
-        cantidad,
-        precio_venta,
-        clientes(nombre),
-        productos(nombre)
-      `
-      )
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase
-      .from('presupuestos')
-      .select(
-        `
-        id,
-        estado,
-        cantidad,
-        precio,
-        clientes(nombre),
-        productos(nombre)
-      `
-      )
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase
-  .from('pedidos')
-  .select(`
-    id,
-    numero_pedido,
-    cliente_id,
-    producto_id,
-    cantidad,
-    precio_venta,
-    coste,
-    beneficio,
-    estado,
-    estado_pago,
-    fecha_pago,
-    prioridad,
-    fecha_entrega,
-    notas,
-    clientes(nombre),
-    productos(nombre)
-  `)
-      .eq('prioridad', 'urgente')
-      .order('created_at', { ascending: false })
-      .limit(5),
-    supabase
-      .from('productos')
-      .select('id, nombre, stock, stock_minimo')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('pedidos')
-      .select('cantidad, precio_venta, created_at')
-      .gte('created_at', inicioMes),
-    supabase
-      .from('presupuestos')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', inicioMes),
-    supabase
-      .from('pedidos')
-      .select('cantidad, precio_venta, created_at')
-      .gte('created_at', hace6Meses),
-  ])
+  function calcularTotalPedido(
+    cantidad: number | null,
+    precioVenta: number | null
+  ) {
+    return (cantidad ?? 0) * (precioVenta ?? 0)
+  }
 
-  const ingresosEstimados = Array.isArray(ingresosRes.data)
-    ? (ingresosRes.data as PedidoIngreso[]).reduce((acc, pedido) => {
-        const cantidad = pedido.cantidad ?? 0
-        const precio = pedido.precio_venta ?? 0
-        return acc + cantidad * precio
-      }, 0)
-    : 0
+  const resumen = useMemo(() => {
+    const totalPedidos = pedidos.length
 
-  const ingresosMes = Array.isArray(pedidosMesRes.data)
-    ? (pedidosMesRes.data as PedidoIngreso[]).reduce((acc, pedido) => {
-        const cantidad = pedido.cantidad ?? 0
-        const precio = pedido.precio_venta ?? 0
-        return acc + cantidad * precio
-      }, 0)
-    : 0
+    const pedidosPendientes = pedidos.filter(
+      (pedido) => pedido.estado === 'pendiente'
+    ).length
 
-  const resumenGeneral = [
-    {
-      title: 'Productos',
-      value: productosRes.count ?? 0,
-      icon: Box,
-      description: 'Productos guardados',
-    },
-    {
-      title: 'Clientes',
-      value: clientesRes.count ?? 0,
-      icon: Users,
-      description: 'Clientes registrados',
-    },
-    {
-      title: 'Pedidos',
-      value: pedidosRes.count ?? 0,
-      icon: Package,
-      description: 'Pedidos creados',
-    },
-    {
-      title: 'Presupuestos',
-      value: presupuestosRes.count ?? 0,
-      icon: FileText,
-      description: 'Presupuestos generados',
-    },
-  ]
+    const ingresos = finanzas
+      .filter((movimiento) => movimiento.tipo === 'ingreso')
+      .reduce((acc, movimiento) => acc + (movimiento.importe ?? 0), 0)
 
-  const indicadores = [
-    {
-      title: 'Pedidos pendientes',
-      value: pedidosPendientesRes.count ?? 0,
-      icon: Clock3,
-      description: 'Aún por completar',
-    },
-    {
-      title: 'Pedidos entregados',
-      value: pedidosEntregadosRes.count ?? 0,
-      icon: CheckCircle2,
-      description: 'Ya finalizados',
-    },
-    {
-      title: 'Presupuestos aceptados',
-      value: presupuestosAceptadosRes.count ?? 0,
-      icon: FileText,
-      description: 'Aprobados por clientes',
-    },
-    {
-      title: 'Ingresos estimados',
-      value: `${ingresosEstimados.toFixed(2)} €`,
-      icon: BadgeEuro,
-      description: 'Suma de pedidos',
-    },
-  ]
+    const gastos = finanzas
+      .filter((movimiento) => movimiento.tipo === 'gasto')
+      .reduce((acc, movimiento) => acc + (movimiento.importe ?? 0), 0)
 
-  const resumenMes = [
-    {
-      title: 'Ingresos del mes',
-      value: `${ingresosMes.toFixed(2)} €`,
-      icon: BadgeEuro,
-      description: 'Suma de pedidos creados este mes',
-    },
-    {
-      title: 'Pedidos del mes',
-      value: Array.isArray(pedidosMesRes.data) ? pedidosMesRes.data.length : 0,
-      icon: CalendarDays,
-      description: 'Pedidos creados este mes',
-    },
-    {
-      title: 'Presupuestos del mes',
-      value: presupuestosMesRes.count ?? 0,
-      icon: FileText,
-      description: 'Presupuestos creados este mes',
-    },
-  ]
+    const beneficioNeto = ingresos - gastos
 
-  const accesosRapidos = [
-    {
-      title: 'Nuevo pedido',
-      href: '/pedidos',
-      icon: Package,
-      description: 'Crear y gestionar pedidos',
-    },
-    {
-      title: 'Nuevo presupuesto',
-      href: '/presupuestos',
-      icon: FileText,
-      description: 'Preparar presupuesto rápido',
-    },
-    {
-      title: 'Nuevo cliente',
-      href: '/clientes',
-      icon: Users,
-      description: 'Añadir un nuevo cliente',
-    },
-    {
-      title: 'Nuevo producto',
-      href: '/productos',
-      icon: Box,
-      description: 'Añadir producto al catálogo',
-    },
-    {
-      title: 'Finanzas',
-      href: '/finanzas',
-      icon: Wallet,
-      description: 'Ver ingresos y beneficios',
-    },
-  ]
-
-  const busquedaRapida = [
-    {
-      title: 'Buscar cliente',
-      href: '/buscar',
-      icon: Users,
-      description: 'Encuentra un cliente rápido',
-    },
-    {
-      title: 'Buscar pedido',
-      href: '/buscar',
-      icon: Package,
-      description: 'Localiza un pedido concreto',
-    },
-    {
-      title: 'Buscar producto',
-      href: '/buscar',
-      icon: Box,
-      description: 'Consulta tu catálogo',
-    },
-    {
-      title: 'Buscar presupuesto',
-      href: '/buscar',
-      icon: FileText,
-      description: 'Busca presupuestos guardados',
-    },
-  ]
-
-  const ultimosPedidos = Array.isArray(ultimosPedidosRes.data)
-    ? ultimosPedidosRes.data
-    : []
-
-  const ultimosPresupuestos = Array.isArray(ultimosPresupuestosRes.data)
-    ? ultimosPresupuestosRes.data
-    : []
-
-  const pedidosUrgentes = Array.isArray(pedidosUrgentesRes.data)
-    ? pedidosUrgentesRes.data
-    : []
-
-  const productosBajoStock = Array.isArray(productosStockRes.data)
-    ? (productosStockRes.data as ProductoStock[]).filter(
-        (producto) => (producto.stock ?? 0) <= (producto.stock_minimo ?? 0)
-      )
-    : []
-
-  const meses = getLast6Months()
-  const pedidosGrafica = Array.isArray(pedidosGraficaRes.data)
-    ? (pedidosGraficaRes.data as PedidoIngreso[])
-    : []
-
-  const datosGraficas = meses.map((mes) => {
-    const pedidosDelMes = pedidosGrafica.filter((pedido) => {
-      if (!pedido.created_at) return false
-      const fecha = new Date(pedido.created_at)
-      const key = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
-      return key === mes.key
-    })
-
-    const totalPedidos = pedidosDelMes.length
-    const totalIngresos = pedidosDelMes.reduce((acc, pedido) => {
-      const cantidad = pedido.cantidad ?? 0
-      const precio = pedido.precio_venta ?? 0
-      return acc + cantidad * precio
-    }, 0)
+    const productosStockBajo = productos.filter((producto) => {
+      const stock = producto.stock ?? 0
+      const stockMinimo = producto.stock_minimo ?? 0
+      return stock <= stockMinimo
+    }).length
 
     return {
-      label: mes.label,
-      pedidos: totalPedidos,
-      ingresos: totalIngresos,
+      totalPedidos,
+      pedidosPendientes,
+      ingresos,
+      gastos,
+      beneficioNeto,
+      productosStockBajo,
     }
-  })
+  }, [pedidos, finanzas, productos])
 
-  const maxPedidos = Math.max(...datosGraficas.map((item) => item.pedidos), 1)
-  const maxIngresos = Math.max(...datosGraficas.map((item) => item.ingresos), 1)
+  const productosConStockBajo = useMemo(() => {
+    return productos
+      .filter((producto) => {
+        const stock = producto.stock ?? 0
+        const stockMinimo = producto.stock_minimo ?? 0
+        return stock <= stockMinimo
+      })
+      .sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0))
+      .slice(0, 6)
+  }, [productos])
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-10">
-          <p className="text-sm font-medium text-white">Vinalux</p>
-          <h1 className="mt-2 text-4xl font-bold text-white">Dashboard</h1>
-          <p className="mt-3 text-slate-300">
-            Resumen general de tu negocio.
-          </p>
+        <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Vinalux</p>
+            <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+            <p className="mt-1 text-slate-500">
+              Resumen general del negocio en tiempo real.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/pedidos"
+              className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              Ver pedidos
+            </Link>
+            <Link
+              href="/finanzas"
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Ver finanzas
+            </Link>
+          </div>
         </div>
 
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Alertas importantes
-          </h2>
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-red-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100">
-                <AlertTriangle size={22} className="text-red-700" />
+        {loading && (
+          <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <p className="text-slate-500">Cargando dashboard...</p>
+          </div>
+        )}
+
+        {!loading && (
+          <>
+            <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-sky-100 p-3">
+                    <ShoppingCart className="h-5 w-5 text-sky-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Total pedidos
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.totalPedidos}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm font-medium text-slate-500">
-                Pedidos urgentes
-              </p>
-              <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                {pedidosUrgentes.length}
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Pedidos marcados como urgentes
-              </p>
-            </div>
 
-            <div className="rounded-3xl border border-yellow-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-                <Clock3 size={22} className="text-yellow-700" />
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-yellow-100 p-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Pedidos pendientes
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.pedidosPendientes}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm font-medium text-slate-500">
-                Pedidos pendientes
-              </p>
-              <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                {pedidosPendientesRes.count ?? 0}
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Aún pendientes de completar
-              </p>
-            </div>
 
-            <div className="rounded-3xl border border-orange-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100">
-                <Box size={22} className="text-orange-700" />
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-emerald-100 p-3">
+                    <TrendingUp className="h-5 w-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Ingresos
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-emerald-600">
+                      {formatearEuros(resumen.ingresos)}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm font-medium text-slate-500">
-                Productos con poco stock
-              </p>
-              <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                {productosBajoStock.length}
-              </h3>
-              <p className="mt-2 text-sm text-slate-500">
-                Igual o por debajo del stock mínimo
-              </p>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-red-100 p-3">
+                    <TrendingDown className="h-5 w-5 text-red-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Gastos</p>
+                    <p className="mt-2 text-3xl font-bold text-red-600">
+                      {formatearEuros(resumen.gastos)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-violet-100 p-3">
+                    <Scale className="h-5 w-5 text-violet-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Beneficio neto
+                    </p>
+                    <p
+                      className={`mt-2 text-3xl font-bold ${
+                        resumen.beneficioNeto >= 0
+                          ? 'text-violet-700'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {formatearEuros(resumen.beneficioNeto)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-orange-100 p-3">
+                    <Box className="h-5 w-5 text-orange-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Stock bajo
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.productosStockBajo}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
 
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Accesos rápidos
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {accesosRapidos.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                      <Icon size={22} className="text-slate-700" />
+            <div className="grid gap-6 xl:grid-cols-3">
+              <div className="xl:col-span-2">
+                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Últimos pedidos
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Pedidos recientes del sistema.
+                      </p>
                     </div>
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900">
-                      <Plus size={18} className="text-white" />
+                    <Link
+                      href="/pedidos"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
+                      Ver todos
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left">
+                      <thead className="bg-slate-100 text-sm text-slate-600">
+                        <tr>
+                          <th className="px-6 py-4 font-semibold">Cliente</th>
+                          <th className="px-6 py-4 font-semibold">Producto</th>
+                          <th className="px-6 py-4 font-semibold">Estado</th>
+                          <th className="px-6 py-4 font-semibold">Pago</th>
+                          <th className="px-6 py-4 font-semibold">Total</th>
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                        {pedidos.map((pedido) => (
+                          <tr key={pedido.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4 font-medium text-slate-900">
+                              {pedido.clientes?.nombre || '-'}
+                            </td>
+                            <td className="px-6 py-4">
+                              {pedido.productos?.nombre || '-'}
+                            </td>
+                            <td className="px-6 py-4">{pedido.estado || '-'}</td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  pedido.estado_pago === 'pagado'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}
+                              >
+                                {pedido.estado_pago || 'pendiente'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-semibold text-slate-900">
+                              {formatearEuros(
+                                calcularTotalPedido(
+                                  pedido.cantidad,
+                                  pedido.precio_venta
+                                )
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Últimos movimientos financieros
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Ingresos y gastos recientes.
+                      </p>
                     </div>
+
+                    <Link
+                      href="/finanzas"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
+                      Ver finanzas
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
 
-                  <h3 className="text-xl font-semibold text-slate-900">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left">
+                      <thead className="bg-slate-100 text-sm text-slate-600">
+                        <tr>
+                          <th className="px-6 py-4 font-semibold">Fecha</th>
+                          <th className="px-6 py-4 font-semibold">Tipo</th>
+                          <th className="px-6 py-4 font-semibold">Descripción</th>
+                          <th className="px-6 py-4 font-semibold">Importe</th>
+                        </tr>
+                      </thead>
 
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Búsqueda rápida
-          </h2>
+                      <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                        {finanzas.map((movimiento) => (
+                          <tr key={movimiento.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4">
+                              {formatearFecha(movimiento.fecha)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  movimiento.tipo === 'ingreso'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
+                                {movimiento.tipo || '-'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-medium text-slate-900">
+                              {movimiento.descripcion || '-'}
+                            </td>
+                            <td
+                              className={`px-6 py-4 font-semibold ${
+                                movimiento.tipo === 'ingreso'
+                                  ? 'text-emerald-600'
+                                  : 'text-red-600'
+                              }`}
+                            >
+                              {formatearEuros(movimiento.importe ?? 0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {busquedaRapida.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                      <Icon size={22} className="text-slate-700" />
+              <div>
+                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Alertas de stock
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Productos igual o por debajo del stock mínimo.
+                      </p>
                     </div>
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900">
-                      <Search size={18} className="text-white" />
-                    </div>
+                    <Link
+                      href="/productos"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
+                      Ver productos
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
 
-                  <h3 className="text-xl font-semibold text-slate-900">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
+                  <div className="divide-y divide-slate-100">
+                    {productosConStockBajo.length === 0 ? (
+                      <div className="p-6">
+                        <p className="text-sm text-slate-500">
+                          No hay productos con stock bajo.
+                        </p>
+                      </div>
+                    ) : (
+                      productosConStockBajo.map((producto) => (
+                        <div
+                          key={producto.id}
+                          className="flex items-center justify-between p-6"
+                        >
+                          <div>
+                            <p className="font-semibold text-slate-900">
+                              {producto.nombre || '-'}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              Stock mínimo: {producto.stock_minimo ?? 0}
+                            </p>
+                          </div>
 
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Totales del mes
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {resumenMes.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <div
-                  key={item.title}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                    <Icon size={22} className="text-slate-700" />
-                  </div>
-
-                  <p className="text-sm font-medium text-slate-500">
-                    {item.title}
-                  </p>
-                  <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                    {item.value}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="mb-10 grid gap-6 xl:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-2xl font-bold text-slate-900">
-              Pedidos por mes
-            </h2>
-
-            <div className="space-y-4">
-              {datosGraficas.map((item) => (
-                <div key={item.label}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
-                      {item.label}
-                    </span>
-                    <span className="text-sm text-slate-500">
-                      {item.pedidos}
-                    </span>
-                  </div>
-
-                  <div className="h-3 rounded-full bg-slate-100">
-                    <div
-                      className="h-3 rounded-full bg-slate-900"
-                      style={{
-                        width: `${(item.pedidos / maxPedidos) * 100}%`,
-                      }}
-                    />
+                          <div className="text-right">
+                            <p
+                              className={`text-lg font-bold ${
+                                (producto.stock ?? 0) === 0
+                                  ? 'text-red-600'
+                                  : 'text-orange-600'
+                              }`}
+                            >
+                              {producto.stock ?? 0}
+                            </p>
+                            <p className="text-xs text-slate-500">unidades</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-2xl font-bold text-slate-900">
-              Ingresos por mes
-            </h2>
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Acciones rápidas
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Accede rápido a las secciones más usadas.
+                  </p>
 
-            <div className="space-y-4">
-              {datosGraficas.map((item) => (
-                <div key={item.label}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">
-                      {item.label}
-                    </span>
-                    <span className="text-sm text-slate-500">
-                      {item.ingresos.toFixed(2)} €
-                    </span>
-                  </div>
-
-                  <div className="h-3 rounded-full bg-slate-100">
-                    <div
-                      className="h-3 rounded-full bg-emerald-500"
-                      style={{
-                        width: `${(item.ingresos / maxIngresos) * 100}%`,
-                      }}
-                    />
+                  <div className="mt-5 grid gap-3">
+                    <Link
+                      href="/pedidos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Ir a pedidos
+                    </Link>
+                    <Link
+                      href="/gastos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Ir a gastos
+                    </Link>
+                    <Link
+                      href="/finanzas"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Ir a finanzas
+                    </Link>
+                    <Link
+                      href="/productos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Revisar stock
+                    </Link>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Resumen general
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {resumenGeneral.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <div
-                  key={item.title}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                    <Icon size={22} className="text-slate-700" />
-                  </div>
-
-                  <p className="text-sm font-medium text-slate-500">
-                    {item.title}
-                  </p>
-                  <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                    {item.value}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Indicadores clave
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {indicadores.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <div
-                  key={item.title}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                    <Icon size={22} className="text-slate-700" />
-                  </div>
-
-                  <p className="text-sm font-medium text-slate-500">
-                    {item.title}
-                  </p>
-                  <h3 className="mt-2 text-3xl font-bold text-slate-900">
-                    {item.value}
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Pedidos urgentes
-          </h2>
-
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-slate-100 text-sm text-slate-700">
-                  <tr>
-                    <th className="p-4 font-semibold">Cliente</th>
-                    <th className="p-4 font-semibold">Producto</th>
-                    <th className="p-4 font-semibold">Estado</th>
-                    <th className="p-4 font-semibold">Prioridad</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-200">
-                  {pedidosUrgentes.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="p-6 text-center text-slate-500"
-                      >
-                        No hay pedidos urgentes.
-                      </td>
-                    </tr>
-                  ) : (
-                    pedidosUrgentes.map((pedido: any) => (
-                      <tr key={pedido.id}>
-                        <td className="p-4 text-black">
-                          {pedido.clientes?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.productos?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.estado || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.prioridad || '-'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Productos con poco stock
-          </h2>
-
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-slate-100 text-sm text-slate-700">
-                  <tr>
-                    <th className="p-4 font-semibold">Producto</th>
-                    <th className="p-4 font-semibold">Stock</th>
-                    <th className="p-4 font-semibold">Stock mínimo</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-200">
-                  {productosBajoStock.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="p-6 text-center text-slate-500"
-                      >
-                        No hay productos con poco stock.
-                      </td>
-                    </tr>
-                  ) : (
-                    productosBajoStock.map((producto) => (
-                      <tr key={producto.id}>
-                        <td className="p-4 text-black">
-                          {producto.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {producto.stock ?? 0}
-                        </td>
-                        <td className="p-4 text-black">
-                          {producto.stock_minimo ?? 0}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Últimos pedidos
-          </h2>
-
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-slate-100 text-sm text-slate-700">
-                  <tr>
-                    <th className="p-4 font-semibold">Cliente</th>
-                    <th className="p-4 font-semibold">Producto</th>
-                    <th className="p-4 font-semibold">Estado</th>
-                    <th className="p-4 font-semibold">Cantidad</th>
-                    <th className="p-4 font-semibold">Total</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-200">
-                  {ultimosPedidos.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="p-6 text-center text-slate-500"
-                      >
-                        No hay pedidos todavía.
-                      </td>
-                    </tr>
-                  ) : (
-                    ultimosPedidos.map((pedido: any) => (
-                      <tr key={pedido.id}>
-                        <td className="p-4 text-black">
-                          {pedido.clientes?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.productos?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.estado || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {pedido.cantidad ?? 0}
-                        </td>
-                        <td className="p-4 font-semibold text-black">
-                          {(
-                            (pedido.cantidad ?? 0) *
-                            (pedido.precio_venta ?? 0)
-                          ).toFixed(2)}{' '}
-                          €
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Últimos presupuestos
-          </h2>
-
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left">
-                <thead className="bg-slate-100 text-sm text-slate-700">
-                  <tr>
-                    <th className="p-4 font-semibold">Cliente</th>
-                    <th className="p-4 font-semibold">Producto</th>
-                    <th className="p-4 font-semibold">Estado</th>
-                    <th className="p-4 font-semibold">Cantidad</th>
-                    <th className="p-4 font-semibold">Total</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-200">
-                  {ultimosPresupuestos.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="p-6 text-center text-slate-500"
-                      >
-                        No hay presupuestos todavía.
-                      </td>
-                    </tr>
-                  ) : (
-                    ultimosPresupuestos.map((presupuesto: any) => (
-                      <tr key={presupuesto.id}>
-                        <td className="p-4 text-black">
-                          {presupuesto.clientes?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {presupuesto.productos?.nombre || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {presupuesto.estado || '-'}
-                        </td>
-                        <td className="p-4 text-black">
-                          {presupuesto.cantidad ?? 0}
-                        </td>
-                        <td className="p-4 font-semibold text-black">
-                          {(
-                            (presupuesto.cantidad ?? 0) *
-                            (presupuesto.precio ?? 0)
-                          ).toFixed(2)}{' '}
-                          €
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+          </>
+        )}
       </div>
     </main>
   )
