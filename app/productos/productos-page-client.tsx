@@ -133,7 +133,9 @@ export default function ProductosPageClient() {
     abrirEdicion(producto)
   }, [highlightedId, productos])
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) {
     const { name, value } = e.target
     setFormData((prev) => ({
       ...prev,
@@ -178,9 +180,9 @@ export default function ProductosPageClient() {
     setError(null)
 
     const payload = {
-      nombre: formData.nombre,
-      categoria: formData.categoria || null,
-      proveedor: formData.proveedor || null,
+      nombre: formData.nombre.trim(),
+      categoria: formData.categoria.trim() || null,
+      proveedor: formData.proveedor.trim() || null,
       precio_compra: formData.precio_compra
         ? Number(formData.precio_compra)
         : 0,
@@ -262,9 +264,9 @@ export default function ProductosPageClient() {
     const categoriaSeleccionada = categoriaFiltro.trim().toLowerCase()
 
     return productos.filter((producto) => {
-      const nombre = producto.nombre?.toLowerCase() || ''
-      const categoria = producto.categoria?.toLowerCase() || ''
-      const proveedor = producto.proveedor?.toLowerCase() || ''
+      const nombre = producto.nombre?.trim().toLowerCase() || ''
+      const categoria = producto.categoria?.trim().toLowerCase() || ''
+      const proveedor = producto.proveedor?.trim().toLowerCase() || ''
 
       const coincideBusqueda =
         !texto ||
@@ -273,7 +275,7 @@ export default function ProductosPageClient() {
         proveedor.includes(texto)
 
       const coincideCategoria =
-        !categoriaSeleccionada || categoria === categoriaSeleccionada
+        !categoriaSeleccionada || categoria.includes(categoriaSeleccionada)
 
       return coincideBusqueda && coincideCategoria
     })
@@ -421,13 +423,19 @@ export default function ProductosPageClient() {
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Categoría
                 </label>
-                <input
+                <select
                   name="categoria"
                   value={formData.categoria}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  placeholder="Ej. Tazas"
-                />
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {categoriasDisponibles.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
