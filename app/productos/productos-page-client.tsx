@@ -53,6 +53,99 @@ const categoriasDisponibles = [
   'Sudaderas',
 ]
 
+function normalizarTexto(texto: string | null | undefined) {
+  return (texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function normalizarCategoria(categoria: string | null | undefined) {
+  const valor = normalizarTexto(categoria)
+
+  if (!valor) return ''
+
+  if (
+    valor.includes('taza') ||
+    valor.includes('tazas')
+  ) {
+    return 'taza'
+  }
+
+  if (
+    valor.includes('botellas vino') ||
+    valor.includes('botella vino') ||
+    valor.includes('botellas de vino') ||
+    valor.includes('botella de vino') ||
+    valor.includes('vino')
+  ) {
+    return 'botellas vino'
+  }
+
+  if (
+    valor.includes('botellas') ||
+    valor.includes('botella')
+  ) {
+    return 'botellas'
+  }
+
+  if (
+    valor.includes('pulseras extremadura') ||
+    valor.includes('pulsera extremadura') ||
+    (valor.includes('pulsera') && valor.includes('extremadura')) ||
+    (valor.includes('pulseras') && valor.includes('extremadura'))
+  ) {
+    return 'pulseras extremadura'
+  }
+
+  if (
+    valor.includes('bolsos') ||
+    valor.includes('bolso')
+  ) {
+    return 'bolsos'
+  }
+
+  if (
+    valor.includes('neceseres') ||
+    valor.includes('neceser')
+  ) {
+    return 'neceseres'
+  }
+
+  if (
+    valor.includes('llaveros') ||
+    valor.includes('llavero')
+  ) {
+    return 'llaveros'
+  }
+
+  if (
+    valor.includes('vinilos sueltos') ||
+    valor.includes('vinilo suelto') ||
+    (valor.includes('vinilo') && valor.includes('suelto')) ||
+    (valor.includes('vinilos') && valor.includes('sueltos'))
+  ) {
+    return 'vinilos sueltos'
+  }
+
+  if (
+    valor.includes('camisetas') ||
+    valor.includes('camiseta')
+  ) {
+    return 'camisetas'
+  }
+
+  if (
+    valor.includes('sudaderas') ||
+    valor.includes('sudadera')
+  ) {
+    return 'sudaderas'
+  }
+
+  return valor
+}
+
 export default function ProductosPageClient() {
   const searchParams = useSearchParams()
   const highlightedId = searchParams.get('id')
@@ -151,10 +244,17 @@ export default function ProductosPageClient() {
   }
 
   function abrirEdicion(producto: Producto) {
+    const categoriaNormalizada = normalizarCategoria(producto.categoria)
+
+    const categoriaFormulario =
+      categoriasDisponibles.find(
+        (cat) => normalizarCategoria(cat) === categoriaNormalizada
+      ) || ''
+
     setEditingId(producto.id)
     setFormData({
       nombre: producto.nombre || '',
-      categoria: producto.categoria || '',
+      categoria: categoriaFormulario,
       proveedor: producto.proveedor || '',
       precio_compra:
         producto.precio_compra !== null ? String(producto.precio_compra) : '',
@@ -172,6 +272,11 @@ export default function ProductosPageClient() {
     setShowForm(false)
     setEditingId(null)
     setFormData(initialFormData)
+  }
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setCategoriaFiltro('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -260,22 +365,23 @@ export default function ProductosPageClient() {
   }
 
   const productosFiltrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase()
-    const categoriaSeleccionada = categoriaFiltro.trim().toLowerCase()
+    const texto = normalizarTexto(busqueda)
+    const categoriaSeleccionada = normalizarCategoria(categoriaFiltro)
 
     return productos.filter((producto) => {
-      const nombre = producto.nombre?.trim().toLowerCase() || ''
-      const categoria = producto.categoria?.trim().toLowerCase() || ''
-      const proveedor = producto.proveedor?.trim().toLowerCase() || ''
+      const nombre = normalizarTexto(producto.nombre)
+      const categoriaOriginal = normalizarTexto(producto.categoria)
+      const categoriaNormalizada = normalizarCategoria(producto.categoria)
+      const proveedor = normalizarTexto(producto.proveedor)
 
       const coincideBusqueda =
         !texto ||
         nombre.includes(texto) ||
-        categoria.includes(texto) ||
+        categoriaOriginal.includes(texto) ||
         proveedor.includes(texto)
 
       const coincideCategoria =
-        !categoriaSeleccionada || categoria.includes(categoriaSeleccionada)
+        !categoriaSeleccionada || categoriaNormalizada === categoriaSeleccionada
 
       return coincideBusqueda && coincideCategoria
     })
@@ -351,7 +457,7 @@ export default function ProductosPageClient() {
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Filtrar por categoría
@@ -381,6 +487,25 @@ export default function ProductosPageClient() {
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               />
             </div>
+
+            <div className="flex flex-col justify-end">
+              <button
+                onClick={limpiarFiltros}
+                type="button"
+                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+              Total: {productos.length}
+            </span>
+            <span className="rounded-full bg-slate-900 px-3 py-1 font-medium text-white">
+              Mostrando: {productosFiltrados.length}
+            </span>
           </div>
         </div>
 
@@ -556,7 +681,7 @@ export default function ProductosPageClient() {
               No hay productos que coincidan
             </h2>
             <p className="mt-2 text-slate-500">
-              Prueba con otra búsqueda o añade un nuevo producto.
+              Prueba con otra búsqueda o ajusta los filtros.
             </p>
           </div>
         )}
