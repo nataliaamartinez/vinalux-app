@@ -306,7 +306,6 @@ export default function PedidosPageClient() {
       cantidad: cantidadNumero,
       precio_venta: precioVentaNumero,
       coste: costeNumero,
-      beneficio: beneficioNumero,
       estado: formData.estado || 'pendiente',
       estado_pago: formData.estado_pago || 'pendiente',
       fecha_pago:
