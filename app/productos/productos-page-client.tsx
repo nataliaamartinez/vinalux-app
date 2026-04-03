@@ -1,14 +1,17 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import * as XLSX from 'xlsx'
 
 type Producto = {
   id: string
   nombre: string
   categoria: string | null
   proveedor: string | null
+  referencia: string | null
+  imagen_url: string | null
   precio_compra: number | null
   precio_venta: number | null
   stock: number | null
@@ -19,6 +22,7 @@ type FormDataType = {
   nombre: string
   categoria: string
   proveedor: string
+  referencia: string
   precio_compra: string
   precio_venta: string
   stock: string
@@ -34,6 +38,7 @@ const initialFormData: FormDataType = {
   nombre: '',
   categoria: '',
   proveedor: '',
+  referencia: '',
   precio_compra: '',
   precio_venta: '',
   stock: '',
@@ -53,6 +58,8 @@ const categoriasDisponibles = [
   'Sudaderas',
 ]
 
+const proveedoresDisponibles = ['Shein y Temu', 'Raffashop', 'Makito']
+
 function normalizarTexto(texto: string | null | undefined) {
   return (texto || '')
     .toLowerCase()
@@ -66,82 +73,16 @@ function normalizarCategoria(categoria: string | null | undefined) {
 
   if (!valor) return ''
 
-  if (
-    valor.includes('taza') ||
-    valor.includes('tazas')
-  ) {
-    return 'taza'
-  }
-
-  if (
-    valor.includes('botellas vino') ||
-    valor.includes('botella vino') ||
-    valor.includes('botellas de vino') ||
-    valor.includes('botella de vino') ||
-    valor.includes('vino')
-  ) {
-    return 'botellas vino'
-  }
-
-  if (
-    valor.includes('botellas') ||
-    valor.includes('botella')
-  ) {
-    return 'botellas'
-  }
-
-  if (
-    valor.includes('pulseras extremadura') ||
-    valor.includes('pulsera extremadura') ||
-    (valor.includes('pulsera') && valor.includes('extremadura')) ||
-    (valor.includes('pulseras') && valor.includes('extremadura'))
-  ) {
-    return 'pulseras extremadura'
-  }
-
-  if (
-    valor.includes('bolsos') ||
-    valor.includes('bolso')
-  ) {
-    return 'bolsos'
-  }
-
-  if (
-    valor.includes('neceseres') ||
-    valor.includes('neceser')
-  ) {
-    return 'neceseres'
-  }
-
-  if (
-    valor.includes('llaveros') ||
-    valor.includes('llavero')
-  ) {
-    return 'llaveros'
-  }
-
-  if (
-    valor.includes('vinilos sueltos') ||
-    valor.includes('vinilo suelto') ||
-    (valor.includes('vinilo') && valor.includes('suelto')) ||
-    (valor.includes('vinilos') && valor.includes('sueltos'))
-  ) {
-    return 'vinilos sueltos'
-  }
-
-  if (
-    valor.includes('camisetas') ||
-    valor.includes('camiseta')
-  ) {
-    return 'camisetas'
-  }
-
-  if (
-    valor.includes('sudaderas') ||
-    valor.includes('sudadera')
-  ) {
-    return 'sudaderas'
-  }
+  if (valor.includes('taza')) return 'taza'
+  if (valor.includes('botellas vino') || valor.includes('botella vino') || valor.includes('vino')) return 'botellas vino'
+  if (valor.includes('botella')) return 'botellas'
+  if (valor.includes('pulsera') && valor.includes('extremadura')) return 'pulseras extremadura'
+  if (valor.includes('bolso')) return 'bolsos'
+  if (valor.includes('neceser')) return 'neceseres'
+  if (valor.includes('llavero')) return 'llaveros'
+  if (valor.includes('vinilo') && valor.includes('suelto')) return 'vinilos sueltos'
+  if (valor.includes('camiseta')) return 'camisetas'
+  if (valor.includes('sudadera')) return 'sudaderas'
 
   return valor
 }
@@ -149,6 +90,7 @@ function normalizarCategoria(categoria: string | null | undefined) {
 export default function ProductosPageClient() {
   const searchParams = useSearchParams()
   const highlightedId = searchParams.get('id')
+  const fileExcelRef = useRef<HTMLInputElement | null>(null)
 
   const [productos, setProductos] = useState<Producto[]>([])
   const [loading, setLoading] = useState(true)
@@ -164,6 +106,9 @@ export default function ProductosPageClient() {
   const [toast, setToast] = useState<ToastType>(null)
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const [imagenFile, setImagenFile] = useState<File | null>(null)
+  const [imagenPreview, setImagenPreview] = useState<string>('')
 
   async function cargarProductos(showRefreshingMessage = false) {
     setLoading(true)
@@ -198,11 +143,7 @@ export default function ProductosPageClient() {
 
   useEffect(() => {
     if (!toast) return
-
-    const timer = setTimeout(() => {
-      setToast(null)
-    }, 2500)
-
+    const timer = setTimeout(() => setToast(null), 2500)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -219,10 +160,8 @@ export default function ProductosPageClient() {
 
   useEffect(() => {
     if (!highlightedId || productos.length === 0) return
-
     const producto = productos.find((item) => item.id === highlightedId)
     if (!producto) return
-
     abrirEdicion(producto)
   }, [highlightedId, productos])
 
@@ -239,6 +178,8 @@ export default function ProductosPageClient() {
   function abrirNuevoProducto() {
     setEditingId(null)
     setFormData(initialFormData)
+    setImagenFile(null)
+    setImagenPreview('')
     setShowForm(true)
     setError(null)
   }
@@ -256,6 +197,7 @@ export default function ProductosPageClient() {
       nombre: producto.nombre || '',
       categoria: categoriaFormulario,
       proveedor: producto.proveedor || '',
+      referencia: producto.referencia || '',
       precio_compra:
         producto.precio_compra !== null ? String(producto.precio_compra) : '',
       precio_venta:
@@ -264,6 +206,8 @@ export default function ProductosPageClient() {
       stock_minimo:
         producto.stock_minimo !== null ? String(producto.stock_minimo) : '',
     })
+    setImagenFile(null)
+    setImagenPreview(producto.imagen_url || '')
     setShowForm(true)
     setError(null)
   }
@@ -272,6 +216,8 @@ export default function ProductosPageClient() {
     setShowForm(false)
     setEditingId(null)
     setFormData(initialFormData)
+    setImagenFile(null)
+    setImagenPreview('')
   }
 
   function limpiarFiltros() {
@@ -279,54 +225,98 @@ export default function ProductosPageClient() {
     setCategoriaFiltro('')
   }
 
+  function handleImagenChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImagenFile(file)
+    setImagenPreview(URL.createObjectURL(file))
+  }
+
+  async function subirImagen(file: File) {
+    const extension = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${extension}`
+
+    const filePath = `productos/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('productos')
+      .upload(filePath, file, {
+        upsert: false,
+      })
+
+    if (uploadError) {
+      throw new Error(uploadError.message)
+    }
+
+    const { data } = supabase.storage.from('productos').getPublicUrl(filePath)
+
+    return data.publicUrl
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
 
-    const payload = {
-      nombre: formData.nombre.trim(),
-      categoria: formData.categoria.trim() || null,
-      proveedor: formData.proveedor.trim() || null,
-      precio_compra: formData.precio_compra
-        ? Number(formData.precio_compra)
-        : 0,
-      precio_venta: formData.precio_venta ? Number(formData.precio_venta) : 0,
-      stock: formData.stock ? Number(formData.stock) : 0,
-      stock_minimo: formData.stock_minimo
-        ? Number(formData.stock_minimo)
-        : 0,
-    }
+    try {
+      let imagenUrl = imagenPreview || null
 
-    let result
-    const isEditing = Boolean(editingId)
+      if (imagenFile) {
+        imagenUrl = await subirImagen(imagenFile)
+      }
 
-    if (editingId) {
-      result = await supabase
-        .from('productos')
-        .update(payload)
-        .eq('id', editingId)
-    } else {
-      result = await supabase.from('productos').insert([payload])
-    }
+      const payload = {
+        nombre: formData.nombre.trim(),
+        categoria: formData.categoria.trim() || null,
+        proveedor: formData.proveedor.trim() || null,
+        referencia: formData.referencia.trim() || null,
+        imagen_url: imagenUrl,
+        precio_compra: formData.precio_compra
+          ? Number(formData.precio_compra)
+          : 0,
+        precio_venta: formData.precio_venta ? Number(formData.precio_venta) : 0,
+        stock: formData.stock ? Number(formData.stock) : 0,
+        stock_minimo: formData.stock_minimo
+          ? Number(formData.stock_minimo)
+          : 0,
+      }
 
-    if (result.error) {
-      setError(result.error.message)
+      let result
+      const isEditing = Boolean(editingId)
+
+      if (editingId) {
+        result = await supabase
+          .from('productos')
+          .update(payload)
+          .eq('id', editingId)
+      } else {
+        result = await supabase.from('productos').insert([payload])
+      }
+
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
+
+      cerrarFormulario()
+      await cargarProductos(true)
+
+      mostrarToast(
+        isEditing
+          ? 'Producto actualizado correctamente.'
+          : 'Producto guardado correctamente.',
+        'success'
+      )
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Error al guardar el producto.'
+      setError(message)
       mostrarToast('Ha ocurrido un error al guardar el producto.', 'error')
+    } finally {
       setSaving(false)
-      return
     }
-
-    cerrarFormulario()
-    setSaving(false)
-    await cargarProductos(true)
-
-    mostrarToast(
-      isEditing
-        ? 'Producto actualizado correctamente.'
-        : 'Producto guardado correctamente.',
-      'success'
-    )
   }
 
   function pedirConfirmacionBorrado(producto: Producto) {
@@ -364,6 +354,64 @@ export default function ProductosPageClient() {
     mostrarToast(`Producto "${nombreBorrado}" borrado correctamente.`, 'success')
   }
 
+  async function importarExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setLoading(true)
+      setLoadingText('Importando productos desde Excel...')
+
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data)
+      const sheetName = workbook.SheetNames[0]
+      const sheet = workbook.Sheets[sheetName]
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
+
+      const productosParaInsertar = rows
+        .map((row) => ({
+          nombre: String(row.nombre || row.Nombre || '').trim(),
+          categoria: String(row.categoria || row.Categoría || row.Categoria || '').trim() || null,
+          proveedor: String(row.proveedor || row.Proveedor || '').trim() || null,
+          referencia: String(row.referencia || row.Referencia || '').trim() || null,
+          precio_compra: Number(row.precio_compra || row['Precio compra'] || row.precioCompra || 0),
+          precio_venta: Number(row.precio_venta || row['Precio venta'] || row.precioVenta || 0),
+          stock: Number(row.stock || row.Stock || 0),
+          stock_minimo: Number(row.stock_minimo || row['Stock mínimo'] || row.stockMinimo || 0),
+          imagen_url: String(row.imagen_url || row['Imagen URL'] || '').trim() || null,
+        }))
+        .filter((item) => item.nombre)
+
+      if (productosParaInsertar.length === 0) {
+        throw new Error('El Excel no contiene productos válidos.')
+      }
+
+      const { error } = await supabase
+        .from('productos')
+        .insert(productosParaInsertar)
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      await cargarProductos(true)
+      mostrarToast(
+        `${productosParaInsertar.length} productos importados correctamente.`,
+        'success'
+      )
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Error al importar el Excel.'
+      setError(message)
+      mostrarToast('No se pudo importar el Excel.', 'error')
+    } finally {
+      setLoading(false)
+      if (fileExcelRef.current) {
+        fileExcelRef.current.value = ''
+      }
+    }
+  }
+
   const productosFiltrados = useMemo(() => {
     const texto = normalizarTexto(busqueda)
     const categoriaSeleccionada = normalizarCategoria(categoriaFiltro)
@@ -373,12 +421,14 @@ export default function ProductosPageClient() {
       const categoriaOriginal = normalizarTexto(producto.categoria)
       const categoriaNormalizada = normalizarCategoria(producto.categoria)
       const proveedor = normalizarTexto(producto.proveedor)
+      const referencia = normalizarTexto(producto.referencia)
 
       const coincideBusqueda =
         !texto ||
         nombre.includes(texto) ||
         categoriaOriginal.includes(texto) ||
-        proveedor.includes(texto)
+        proveedor.includes(texto) ||
+        referencia.includes(texto)
 
       const coincideCategoria =
         !categoriaSeleccionada || categoriaNormalizada === categoriaSeleccionada
@@ -448,12 +498,30 @@ export default function ProductosPageClient() {
             </p>
           </div>
 
-          <button
-            onClick={abrirNuevoProducto}
-            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-slate-800"
-          >
-            + Nuevo producto
-          </button>
+          <div className="flex flex-col gap-3 md:flex-row">
+            <input
+              ref={fileExcelRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={importarExcel}
+              className="hidden"
+            />
+
+            <button
+              type="button"
+              onClick={() => fileExcelRef.current?.click()}
+              className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Importar Excel
+            </button>
+
+            <button
+              onClick={abrirNuevoProducto}
+              className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-slate-800"
+            >
+              + Nuevo producto
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -483,7 +551,7 @@ export default function ProductosPageClient() {
               <input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre, categoría o proveedor..."
+                placeholder="Buscar por nombre, categoría, proveedor o referencia..."
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               />
             </div>
@@ -567,12 +635,31 @@ export default function ProductosPageClient() {
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Proveedor
                 </label>
-                <input
+                <select
                   name="proveedor"
                   value={formData.proveedor}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  placeholder="Ej. Proveedor A"
+                >
+                  <option value="">Selecciona un proveedor</option>
+                  {proveedoresDisponibles.map((proveedor) => (
+                    <option key={proveedor} value={proveedor}>
+                      {proveedor}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Referencia
+                </label>
+                <input
+                  name="referencia"
+                  value={formData.referencia}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  placeholder="Ej. SH-2458"
                 />
               </div>
 
@@ -634,6 +721,28 @@ export default function ProductosPageClient() {
                 />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Foto del producto
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImagenChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black"
+                />
+
+                {imagenPreview && (
+                  <div className="mt-4">
+                    <img
+                      src={imagenPreview}
+                      alt="Vista previa"
+                      className="h-40 w-40 rounded-2xl object-cover border border-slate-200"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-2 md:col-span-2">
                 <button
                   type="submit"
@@ -692,9 +801,11 @@ export default function ProductosPageClient() {
               <table className="min-w-full text-left">
                 <thead className="bg-slate-100 text-sm text-slate-600">
                   <tr>
+                    <th className="px-6 py-4 font-semibold">Foto</th>
                     <th className="px-6 py-4 font-semibold">Nombre</th>
                     <th className="px-6 py-4 font-semibold">Categoría</th>
                     <th className="px-6 py-4 font-semibold">Proveedor</th>
+                    <th className="px-6 py-4 font-semibold">Referencia</th>
                     <th className="px-6 py-4 font-semibold">Precio compra</th>
                     <th className="px-6 py-4 font-semibold">Precio venta</th>
                     <th className="px-6 py-4 font-semibold">Stock</th>
@@ -711,11 +822,25 @@ export default function ProductosPageClient() {
                         highlightedId === producto.id ? 'bg-yellow-100' : ''
                       }`}
                     >
+                      <td className="px-6 py-4">
+                        {producto.imagen_url ? (
+                          <img
+                            src={producto.imagen_url}
+                            alt={producto.nombre}
+                            className="h-14 w-14 rounded-xl object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-400">
+                            Sin foto
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 font-medium text-slate-900">
                         {producto.nombre || '-'}
                       </td>
                       <td className="px-6 py-4">{producto.categoria || '-'}</td>
                       <td className="px-6 py-4">{producto.proveedor || '-'}</td>
+                      <td className="px-6 py-4">{producto.referencia || '-'}</td>
                       <td className="px-6 py-4">
                         {producto.precio_compra ?? 0} €
                       </td>
