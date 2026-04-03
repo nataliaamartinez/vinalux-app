@@ -1,5 +1,5 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import {
   LayoutDashboard,
   Box,
@@ -11,22 +11,43 @@ import {
   Search,
   Menu,
   Sparkles,
+  Wallet,
   Receipt,
-    Wallet, // 👈 AÑADE ESTO
-
 } from 'lucide-react'
 import SidebarLink from '@/components/sidebar-link'
 
 export const metadata: Metadata = {
   title: 'Vinalux',
   description: 'Panel de gestión de Vinalux',
+
+  // 🔥 IMPORTANTE PARA APP EN IPAD/IPHONE
+  applicationName: 'Vinalux',
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Vinalux',
+  },
+
+  formatDetection: {
+    telephone: false,
+  },
+
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/apple-icon.png',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="es">
       <body className="bg-slate-900 text-slate-900">
@@ -58,17 +79,17 @@ export default function RootLayout({
                   <SidebarLink href="/productos" icon={<Box size={18} />}>
                     Productos
                   </SidebarLink>
-                  <SidebarLink href="/finanzas" icon={<Wallet size={18} />}>
-  Finanzas
-</SidebarLink>
-<SidebarLink href="/gastos" icon={<Receipt size={18} />}>
-  Gastos
-</SidebarLink>
                   <SidebarLink href="/clientes" icon={<Users size={18} />}>
                     Clientes
                   </SidebarLink>
                   <SidebarLink href="/pedidos" icon={<Package size={18} />}>
                     Pedidos
+                  </SidebarLink>
+                  <SidebarLink href="/finanzas" icon={<Wallet size={18} />}>
+                    Finanzas
+                  </SidebarLink>
+                  <SidebarLink href="/gastos" icon={<Receipt size={18} />}>
+                    Gastos
                   </SidebarLink>
                   <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                     Presupuestos
@@ -100,11 +121,11 @@ export default function RootLayout({
                 Pedidos
               </SidebarLink>
               <SidebarLink href="/finanzas" icon={<Wallet size={18} />}>
-  Finanzas
-</SidebarLink>
-<SidebarLink href="/gastos" icon={<Receipt size={18} />}>
-  Gastos
-</SidebarLink>
+                Finanzas
+              </SidebarLink>
+              <SidebarLink href="/gastos" icon={<Receipt size={18} />}>
+                Gastos
+              </SidebarLink>
               <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                 Presupuestos
               </SidebarLink>
@@ -117,7 +138,9 @@ export default function RootLayout({
             </nav>
           </aside>
 
-          <main className="flex-1 bg-slate-900 p-4 md:p-8">{children}</main>
+          <main className="flex-1 bg-slate-900 p-4 md:p-8">
+            {children}
+          </main>
         </div>
       </body>
     </html>
