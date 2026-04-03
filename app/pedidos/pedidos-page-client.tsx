@@ -32,6 +32,10 @@ type Pedido = {
   prioridad: string | null
   fecha_entrega: string | null
   notas: string | null
+  tipo_material: string | null
+  tipo_producto: string | null
+  talla: string | null
+  color: string | null
   clientes: { nombre: string } | null
   productos: { nombre: string } | null
 }
@@ -47,6 +51,10 @@ type FormDataType = {
   prioridad: string
   fecha_entrega: string
   notas: string
+  tipo_material: string
+  tipo_producto: string
+  talla: string
+  color: string
 }
 
 const initialFormData: FormDataType = {
@@ -60,6 +68,10 @@ const initialFormData: FormDataType = {
   prioridad: 'media',
   fecha_entrega: '',
   notas: '',
+  tipo_material: '',
+  tipo_producto: '',
+  talla: '',
+  color: '',
 }
 
 export default function PedidosPageClient() {
@@ -151,6 +163,15 @@ export default function PedidosPageClient() {
   ) {
     const { name, value } = e.target
 
+    if (name === 'tipo_producto') {
+      setFormData((prev) => ({
+        ...prev,
+        tipo_producto: value,
+        talla: value === 'textil' ? prev.talla : '',
+      }))
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -181,18 +202,22 @@ export default function PedidosPageClient() {
   function abrirEdicion(pedido: Pedido) {
     setEditingId(pedido.id)
     setFormData({
-  cliente_id: pedido.cliente_id || '',
-  producto_id: pedido.producto_id || '',
-  cantidad: pedido.cantidad !== null ? String(pedido.cantidad) : '1',
-  precio_venta:
-    pedido.precio_venta !== null ? String(pedido.precio_venta) : '',
-  coste: pedido.coste !== null ? String(pedido.coste) : '',
-  estado: pedido.estado || 'pendiente',
-  estado_pago: pedido.estado_pago || 'pendiente',
-  prioridad: pedido.prioridad || 'media',
-  fecha_entrega: pedido.fecha_entrega || '',
-  notas: pedido.notas || '',
-})
+      cliente_id: pedido.cliente_id || '',
+      producto_id: pedido.producto_id || '',
+      cantidad: pedido.cantidad !== null ? String(pedido.cantidad) : '1',
+      precio_venta:
+        pedido.precio_venta !== null ? String(pedido.precio_venta) : '',
+      coste: pedido.coste !== null ? String(pedido.coste) : '',
+      estado: pedido.estado || 'pendiente',
+      estado_pago: pedido.estado_pago || 'pendiente',
+      prioridad: pedido.prioridad || 'media',
+      fecha_entrega: pedido.fecha_entrega || '',
+      notas: pedido.notas || '',
+      tipo_material: pedido.tipo_material || '',
+      tipo_producto: pedido.tipo_producto || '',
+      talla: pedido.talla || '',
+      color: pedido.color || '',
+    })
     setShowForm(true)
     setError(null)
   }
@@ -203,35 +228,35 @@ export default function PedidosPageClient() {
     setFormData(initialFormData)
   }
 
- async function actualizarStockProducto(productoId: string, nuevoStock: number) {
-  const { data, error } = await supabase
-    .from('productos')
-    .update({ stock: nuevoStock })
-    .eq('id', productoId)
-    .select('id, nombre, stock')
+  async function actualizarStockProducto(productoId: string, nuevoStock: number) {
+    const { data, error } = await supabase
+      .from('productos')
+      .update({ stock: nuevoStock })
+      .eq('id', productoId)
+      .select('id, nombre, stock')
 
-  if (error) {
+    if (error) {
+      return {
+        data: null,
+        error,
+      }
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        data: null,
+        error: {
+          message:
+            'No se actualizó ninguna fila en productos. Revisa policies, el id del producto o el nombre de la columna stock.',
+        },
+      }
+    }
+
     return {
-      data: null,
-      error,
+      data,
+      error: null,
     }
   }
-
-  if (!data || data.length === 0) {
-    return {
-      data: null,
-      error: {
-        message:
-          'No se actualizó ninguna fila en productos. Revisa policies, el id del producto o el nombre de la columna stock.',
-      },
-    }
-  }
-
-  return {
-    data,
-    error: null,
-  }
-}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -239,35 +264,65 @@ export default function PedidosPageClient() {
     setError(null)
 
     const cantidadNumero = formData.cantidad ? Number(formData.cantidad) : 1
-const precioVentaNumero = formData.precio_venta
-  ? Number(formData.precio_venta)
-  : 0
-const costeNumero = formData.coste ? Number(formData.coste) : 0
-const beneficioNumero = (precioVentaNumero - costeNumero) * cantidadNumero
+    const precioVentaNumero = formData.precio_venta
+      ? Number(formData.precio_venta)
+      : 0
+    const costeNumero = formData.coste ? Number(formData.coste) : 0
+    const beneficioNumero = (precioVentaNumero - costeNumero) * cantidadNumero
 
     if (cantidadNumero <= 0) {
       setError('La cantidad debe ser mayor que 0.')
       setSaving(false)
       return
     }
-const payload = {
-  cliente_id: formData.cliente_id || null,
-  producto_id: formData.producto_id || null,
-  cantidad: cantidadNumero,
-  precio_venta: precioVentaNumero,
-  coste: costeNumero,
-  estado: formData.estado || 'pendiente',
-  estado_pago: formData.estado_pago || 'pendiente',
- fecha_pago:
-  formData.estado_pago === 'pagado'
-    ? formData.estado_pago === 'pagado' && !editingId
-      ? new Date().toISOString().split('T')[0]
-      : undefined
-    : null,
-  prioridad: formData.prioridad || 'media',
-  fecha_entrega: formData.fecha_entrega || null,
-  notas: formData.notas || null,
-}
+
+    if (!formData.tipo_material) {
+      setError('Debes seleccionar un tipo de material.')
+      setSaving(false)
+      return
+    }
+
+    if (!formData.tipo_producto) {
+      setError('Debes seleccionar un tipo de producto.')
+      setSaving(false)
+      return
+    }
+
+    if (formData.tipo_producto === 'textil' && !formData.talla) {
+      setError('Debes seleccionar una talla para productos textiles.')
+      setSaving(false)
+      return
+    }
+
+    if (!formData.color.trim()) {
+      setError('Debes indicar un color.')
+      setSaving(false)
+      return
+    }
+
+    const payload = {
+      cliente_id: formData.cliente_id || null,
+      producto_id: formData.producto_id || null,
+      cantidad: cantidadNumero,
+      precio_venta: precioVentaNumero,
+      coste: costeNumero,
+      beneficio: beneficioNumero,
+      estado: formData.estado || 'pendiente',
+      estado_pago: formData.estado_pago || 'pendiente',
+      fecha_pago:
+        formData.estado_pago === 'pagado'
+          ? formData.estado_pago === 'pagado' && !editingId
+            ? new Date().toISOString().split('T')[0]
+            : undefined
+          : null,
+      prioridad: formData.prioridad || 'media',
+      fecha_entrega: formData.fecha_entrega || null,
+      notas: formData.notas || null,
+      tipo_material: formData.tipo_material || null,
+      tipo_producto: formData.tipo_producto || null,
+      talla: formData.tipo_producto === 'textil' ? formData.talla || null : null,
+      color: formData.color || null,
+    }
 
     if (!editingId) {
       const productoSeleccionado = productos.find(
@@ -300,27 +355,22 @@ const payload = {
 
       const nuevoStock = stockActual - cantidadNumero
 
-      console.log('Producto seleccionado:', productoSeleccionado)
-      console.log('Cantidad pedida:', cantidadNumero)
-      console.log('Stock actual:', stockActual)
-      console.log('Nuevo stock:', nuevoStock)
+      const stockRes = await actualizarStockProducto(
+        productoSeleccionado.id,
+        nuevoStock
+      )
 
-     const stockRes = await actualizarStockProducto(
-  productoSeleccionado.id,
-  nuevoStock
-)
-
-if (stockRes.error) {
-  setError(
-    `El pedido se guardó, pero no se pudo actualizar el stock: ${stockRes.error.message}`
-  )
-  alert(
-    `El pedido se guardó, pero no se pudo actualizar el stock:\n${stockRes.error.message}`
-  )
-  setSaving(false)
-  await cargarDatos()
-  return
-}
+      if (stockRes.error) {
+        setError(
+          `El pedido se guardó, pero no se pudo actualizar el stock: ${stockRes.error.message}`
+        )
+        alert(
+          `El pedido se guardó, pero no se pudo actualizar el stock:\n${stockRes.error.message}`
+        )
+        setSaving(false)
+        await cargarDatos()
+        return
+      }
     } else {
       const pedidoOriginal = pedidos.find((pedido) => pedido.id === editingId)
 
@@ -624,7 +674,7 @@ if (stockRes.error) {
             <p className="text-sm font-medium text-slate-500">Vinalux</p>
             <h1 className="text-3xl font-bold text-slate-900">Pedidos</h1>
             <p className="mt-1 text-slate-500">
-              Gestiona pedidos con cliente, producto y prioridad.
+              Gestiona pedidos con cliente, producto, material, color y prioridad.
             </p>
           </div>
 
@@ -772,6 +822,79 @@ if (stockRes.error) {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Tipo de material
+                </label>
+                <select
+                  name="tipo_material"
+                  value={formData.tipo_material}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  required
+                >
+                  <option value="">Selecciona un tipo de material</option>
+                  <option value="dtf">DTF</option>
+                  <option value="dtf uv">DTF UV</option>
+                  <option value="sublimacion">Sublimación</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Tipo de producto
+                </label>
+                <select
+                  name="tipo_producto"
+                  value={formData.tipo_producto}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  required
+                >
+                  <option value="">Selecciona un tipo de producto</option>
+                  <option value="material duro">Material duro</option>
+                  <option value="textil">Textil</option>
+                </select>
+              </div>
+
+              {formData.tipo_producto === 'textil' && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Talla
+                  </label>
+                  <select
+                    name="talla"
+                    value={formData.talla}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                    required
+                  >
+                    <option value="">Selecciona una talla</option>
+                    <option value="XS">XS</option>
+                    <option value="S">S</option>
+                    <option value="M">M</option>
+                    <option value="L">L</option>
+                    <option value="XL">XL</option>
+                    <option value="XXL">XXL</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Color
+                </label>
+                <input
+                  name="color"
+                  type="text"
+                  value={formData.color}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  placeholder="Ej: blanco, negro, azul..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
                   Cantidad
                 </label>
                 <input
@@ -844,19 +967,19 @@ if (stockRes.error) {
               </div>
 
               <div>
-  <label className="mb-1 block text-sm font-medium text-slate-700">
-    Estado de pago
-  </label>
-  <select
-    name="estado_pago"
-    value={formData.estado_pago}
-    onChange={handleChange}
-    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
-  >
-    <option value="pendiente">Pendiente</option>
-    <option value="pagado">Pagado</option>
-  </select>
-</div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Estado de pago
+                </label>
+                <select
+                  name="estado_pago"
+                  value={formData.estado_pago}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pagado">Pagado</option>
+                </select>
+              </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -931,8 +1054,8 @@ if (stockRes.error) {
                   {saving
                     ? 'Guardando...'
                     : editingId
-                      ? 'Guardar cambios'
-                      : 'Guardar pedido'}
+                    ? 'Guardar cambios'
+                    : 'Guardar pedido'}
                 </button>
 
                 <button
@@ -973,6 +1096,34 @@ if (stockRes.error) {
                 <p className="text-sm text-slate-500">Producto</p>
                 <p className="mt-1 font-semibold text-slate-900">
                   {selectedPedido.productos?.nombre || '-'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Tipo de material</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {selectedPedido.tipo_material || '-'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Tipo de producto</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {selectedPedido.tipo_producto || '-'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Talla</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {selectedPedido.talla || '-'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Color</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {selectedPedido.color || '-'}
                 </p>
               </div>
 
@@ -1065,19 +1216,23 @@ if (stockRes.error) {
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead className="bg-slate-100 text-sm text-slate-600">
-  <tr>
-    <th className="px-6 py-4 font-semibold">Cliente</th>
-    <th className="px-6 py-4 font-semibold">Producto</th>
-    <th className="px-6 py-4 font-semibold">Cantidad</th>
-    <th className="px-6 py-4 font-semibold">Estado</th>
-    <th className="px-6 py-4 font-semibold">Pago</th>
-    <th className="px-6 py-4 font-semibold">Prioridad</th>
-    <th className="px-6 py-4 font-semibold">Entrega</th>
-    <th className="px-6 py-4 font-semibold">Total</th>
-    <th className="px-6 py-4 font-semibold">Beneficio</th>
-    <th className="px-6 py-4 font-semibold">Acciones</th>
-  </tr>
-</thead>
+                  <tr>
+                    <th className="px-6 py-4 font-semibold">Cliente</th>
+                    <th className="px-6 py-4 font-semibold">Producto</th>
+                    <th className="px-6 py-4 font-semibold">Material</th>
+                    <th className="px-6 py-4 font-semibold">Tipo</th>
+                    <th className="px-6 py-4 font-semibold">Talla</th>
+                    <th className="px-6 py-4 font-semibold">Color</th>
+                    <th className="px-6 py-4 font-semibold">Cantidad</th>
+                    <th className="px-6 py-4 font-semibold">Estado</th>
+                    <th className="px-6 py-4 font-semibold">Pago</th>
+                    <th className="px-6 py-4 font-semibold">Prioridad</th>
+                    <th className="px-6 py-4 font-semibold">Entrega</th>
+                    <th className="px-6 py-4 font-semibold">Total</th>
+                    <th className="px-6 py-4 font-semibold">Beneficio</th>
+                    <th className="px-6 py-4 font-semibold">Acciones</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {pedidosFiltrados.map((pedido) => (
                     <tr
@@ -1087,39 +1242,41 @@ if (stockRes.error) {
                         highlightedId === pedido.id ? 'bg-yellow-100' : ''
                       }`}
                     >
-                     <td className="px-6 py-4 font-medium text-slate-900">
-  <div className="flex items-center gap-2">
-    {pedido.estado_pago === 'pagado' && (
-      <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-    )}
-    <span>{pedido.clientes?.nombre || '-'}</span>
-  </div>
-</td>
-                      <td className="px-6 py-4">
-                        {pedido.productos?.nombre || '-'}
+                      <td className="px-6 py-4 font-medium text-slate-900">
+                        <div className="flex items-center gap-2">
+                          {pedido.estado_pago === 'pagado' && (
+                            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                          )}
+                          <span>{pedido.clientes?.nombre || '-'}</span>
+                        </div>
                       </td>
+                      <td className="px-6 py-4">{pedido.productos?.nombre || '-'}</td>
+                      <td className="px-6 py-4">{pedido.tipo_material || '-'}</td>
+                      <td className="px-6 py-4">{pedido.tipo_producto || '-'}</td>
+                      <td className="px-6 py-4">{pedido.talla || '-'}</td>
+                      <td className="px-6 py-4">{pedido.color || '-'}</td>
                       <td className="px-6 py-4">{pedido.cantidad ?? 0}</td>
                       <td className="px-6 py-4">{pedido.estado || '-'}</td>
-<td className="px-6 py-4">
-  <span
-    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-      pedido.estado_pago === 'pagado'
-        ? 'bg-emerald-100 text-emerald-700'
-        : 'bg-yellow-100 text-yellow-700'
-    }`}
-  >
-    {pedido.estado_pago || 'pendiente'}
-  </span>
-</td>
-<td className="px-6 py-4">
-  <span
-    className={`rounded-full px-3 py-1 text-xs font-semibold ${colorPrioridad(
-      pedido.prioridad
-    )}`}
-  >
-    {pedido.prioridad || '-'}
-  </span>
-</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            pedido.estado_pago === 'pagado'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          {pedido.estado_pago || 'pendiente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${colorPrioridad(
+                            pedido.prioridad
+                          )}`}
+                        >
+                          {pedido.prioridad || '-'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">{pedido.fecha_entrega || '-'}</td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
                         {formatearEuros(
