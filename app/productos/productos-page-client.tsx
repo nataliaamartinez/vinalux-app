@@ -355,62 +355,83 @@ export default function ProductosPageClient() {
   }
 
   async function importarExcel(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    try {
-      setLoading(true)
-      setLoadingText('Importando productos desde Excel...')
+  function extraerNumero(valor: unknown) {
+    if (valor === null || valor === undefined || valor === '') return 0
+    if (typeof valor === 'number') return valor
 
-      const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const sheetName = workbook.SheetNames[0]
-      const sheet = workbook.Sheets[sheetName]
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet)
+    const texto = String(valor).trim().replace(',', '.')
+    const match = texto.match(/-?\d+(\.\d+)?/)
 
-      const productosParaInsertar = rows
-        .map((row) => ({
-          nombre: String(row.nombre || row.Nombre || '').trim(),
-          categoria: String(row.categoria || row.Categoría || row.Categoria || '').trim() || null,
-          proveedor: String(row.proveedor || row.Proveedor || '').trim() || null,
-          referencia: String(row.referencia || row.Referencia || '').trim() || null,
-          precio_compra: Number(row.precio_compra || row['Precio compra'] || row.precioCompra || 0),
-          precio_venta: Number(row.precio_venta || row['Precio venta'] || row.precioVenta || 0),
-          stock: Number(row.stock || row.Stock || 0),
-          stock_minimo: Number(row.stock_minimo || row['Stock mínimo'] || row.stockMinimo || 0),
-          imagen_url: String(row.imagen_url || row['Imagen URL'] || '').trim() || null,
-        }))
-        .filter((item) => item.nombre)
+    return match ? Number(match[0]) : 0
+  }
 
-      if (productosParaInsertar.length === 0) {
-        throw new Error('El Excel no contiene productos válidos.')
-      }
+  try {
+    setLoading(true)
+    setLoadingText('Importando productos desde Excel...')
 
-      const { error } = await supabase
-        .from('productos')
-        .insert(productosParaInsertar)
+    const data = await file.arrayBuffer()
+    const workbook = XLSX.read(data)
+    const sheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[sheetName]
 
-      if (error) {
-        throw new Error(error.message)
-      }
+    const filas = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+      header: 1,
+      defval: '',
+    })
 
-      await cargarProductos(true)
-      mostrarToast(
-        `${productosParaInsertar.length} productos importados correctamente.`,
-        'success'
-      )
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Error al importar el Excel.'
-      setError(message)
-      mostrarToast('No se pudo importar el Excel.', 'error')
-    } finally {
-      setLoading(false)
-      if (fileExcelRef.current) {
-        fileExcelRef.current.value = ''
-      }
+    const productosParaInsertar = filas
+      .slice(1)
+      .map((fila) => {
+        const nombre = String(fila[0] || '').trim()
+        const referencia = String(fila[1] || '').trim()
+        const precioCompra = extraerNumero(fila[3])
+
+        return {
+          nombre,
+          categoria: null,
+          proveedor: 'Makito',
+          referencia: referencia || null,
+          imagen_url: null,
+          precio_compra: precioCompra,
+          precio_venta: 0,
+          stock: 0,
+          stock_minimo: 0,
+        }
+      })
+      .filter((item) => item.nombre)
+
+    if (productosParaInsertar.length === 0) {
+      throw new Error('El Excel no contiene productos válidos.')
+    }
+
+    const { error } = await supabase
+      .from('productos')
+      .insert(productosParaInsertar)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    await cargarProductos(true)
+    mostrarToast(
+      `${productosParaInsertar.length} productos importados correctamente.`,
+      'success'
+    )
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Error al importar el Excel.'
+    setError(message)
+    mostrarToast('No se pudo importar el Excel.', 'error')
+  } finally {
+    setLoading(false)
+    if (fileExcelRef.current) {
+      fileExcelRef.current.value = ''
     }
   }
+}
 
   const productosFiltrados = useMemo(() => {
     const texto = normalizarTexto(busqueda)
