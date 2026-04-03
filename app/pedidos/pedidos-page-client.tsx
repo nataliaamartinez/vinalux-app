@@ -41,6 +41,7 @@ type Pedido = {
 }
 
 type FormDataType = {
+  numero_pedido: string
   cliente_id: string
   producto_id: string
   cantidad: string
@@ -58,6 +59,7 @@ type FormDataType = {
 }
 
 const initialFormData: FormDataType = {
+  numero_pedido: '',
   cliente_id: '',
   producto_id: '',
   cantidad: '1',
@@ -202,6 +204,7 @@ export default function PedidosPageClient() {
   function abrirEdicion(pedido: Pedido) {
     setEditingId(pedido.id)
     setFormData({
+      numero_pedido: pedido.numero_pedido || '',
       cliente_id: pedido.cliente_id || '',
       producto_id: pedido.producto_id || '',
       cantidad: pedido.cantidad !== null ? String(pedido.cantidad) : '1',
@@ -268,7 +271,12 @@ export default function PedidosPageClient() {
       ? Number(formData.precio_venta)
       : 0
     const costeNumero = formData.coste ? Number(formData.coste) : 0
-    const beneficioNumero = (precioVentaNumero - costeNumero) * cantidadNumero
+
+    if (!formData.numero_pedido.trim()) {
+      setError('Debes indicar el ID del pedido.')
+      setSaving(false)
+      return
+    }
 
     if (cantidadNumero <= 0) {
       setError('La cantidad debe ser mayor que 0.')
@@ -301,6 +309,7 @@ export default function PedidosPageClient() {
     }
 
     const payload = {
+      numero_pedido: formData.numero_pedido.trim(),
       cliente_id: formData.cliente_id || null,
       producto_id: formData.producto_id || null,
       cantidad: cantidadNumero,
@@ -310,7 +319,7 @@ export default function PedidosPageClient() {
       estado_pago: formData.estado_pago || 'pendiente',
       fecha_pago:
         formData.estado_pago === 'pagado'
-          ? formData.estado_pago === 'pagado' && !editingId
+          ? !editingId
             ? new Date().toISOString().split('T')[0]
             : undefined
           : null,
@@ -781,6 +790,21 @@ export default function PedidosPageClient() {
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
+                  ID del pedido
+                </label>
+                <input
+                  name="numero_pedido"
+                  type="text"
+                  value={formData.numero_pedido}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                  placeholder="Ej: PED-001"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
                   Cliente
                 </label>
                 <select
@@ -1085,6 +1109,13 @@ export default function PedidosPageClient() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">ID del pedido</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {selectedPedido.numero_pedido || '-'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Cliente</p>
                 <p className="mt-1 font-semibold text-slate-900">
                   {selectedPedido.clientes?.nombre || '-'}
@@ -1216,6 +1247,7 @@ export default function PedidosPageClient() {
               <table className="min-w-full text-left">
                 <thead className="bg-slate-100 text-sm text-slate-600">
                   <tr>
+                    <th className="px-6 py-4 font-semibold">ID Pedido</th>
                     <th className="px-6 py-4 font-semibold">Cliente</th>
                     <th className="px-6 py-4 font-semibold">Producto</th>
                     <th className="px-6 py-4 font-semibold">Material</th>
@@ -1241,6 +1273,9 @@ export default function PedidosPageClient() {
                         highlightedId === pedido.id ? 'bg-yellow-100' : ''
                       }`}
                     >
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {pedido.numero_pedido || '-'}
+                      </td>
                       <td className="px-6 py-4 font-medium text-slate-900">
                         <div className="flex items-center gap-2">
                           {pedido.estado_pago === 'pagado' && (
