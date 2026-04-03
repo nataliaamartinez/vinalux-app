@@ -94,12 +94,7 @@ export default function RootLayout({
                   <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                     Presupuestos
                   </SidebarLink>
-                  <SidebarLink href="/calendario" icon={<Calendar size={18} />}>
-                    Calendario
-                  </SidebarLink>
-                  <SidebarLink href="/ajustes" icon={<Settings size={18} />}>
-                    Ajustes
-                  </SidebarLink>
+                  
                 </nav>
               </details>
             </div>
@@ -129,12 +124,7 @@ export default function RootLayout({
               <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                 Presupuestos
               </SidebarLink>
-              <SidebarLink href="/calendario" icon={<Calendar size={18} />}>
-                Calendario
-              </SidebarLink>
-              <SidebarLink href="/ajustes" icon={<Settings size={18} />}>
-                Ajustes
-              </SidebarLink>
+              
             </nav>
           </aside>
 
