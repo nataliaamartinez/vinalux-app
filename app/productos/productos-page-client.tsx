@@ -40,6 +40,19 @@ const initialFormData: FormDataType = {
   stock_minimo: '',
 }
 
+const categoriasDisponibles = [
+  'Taza',
+  'Botellas',
+  'Botellas vino',
+  'Pulseras Extremadura',
+  'Bolsos',
+  'Neceseres',
+  'Llaveros',
+  'Vinilos sueltos',
+  'Camisetas',
+  'Sudaderas',
+]
+
 export default function ProductosPageClient() {
   const searchParams = useSearchParams()
   const highlightedId = searchParams.get('id')
@@ -52,6 +65,7 @@ export default function ProductosPageClient() {
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
+  const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
 
   const [toast, setToast] = useState<ToastType>(null)
@@ -245,21 +259,25 @@ export default function ProductosPageClient() {
 
   const productosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
-
-    if (!texto) return productos
+    const categoriaSeleccionada = categoriaFiltro.trim().toLowerCase()
 
     return productos.filter((producto) => {
       const nombre = producto.nombre?.toLowerCase() || ''
       const categoria = producto.categoria?.toLowerCase() || ''
       const proveedor = producto.proveedor?.toLowerCase() || ''
 
-      return (
+      const coincideBusqueda =
+        !texto ||
         nombre.includes(texto) ||
         categoria.includes(texto) ||
         proveedor.includes(texto)
-      )
+
+      const coincideCategoria =
+        !categoriaSeleccionada || categoria === categoriaSeleccionada
+
+      return coincideBusqueda && coincideCategoria
     })
-  }, [busqueda, productos])
+  }, [busqueda, categoriaFiltro, productos])
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -331,15 +349,37 @@ export default function ProductosPageClient() {
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Buscar producto
-          </label>
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, categoría o proveedor..."
-            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-          />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Filtrar por categoría
+              </label>
+              <select
+                value={categoriaFiltro}
+                onChange={(e) => setCategoriaFiltro(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Todas las categorías</option>
+                {categoriasDisponibles.map((categoria) => (
+                  <option key={categoria} value={categoria}>
+                    {categoria}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Buscar producto
+              </label>
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre, categoría o proveedor..."
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
+          </div>
         </div>
 
         {error && (
