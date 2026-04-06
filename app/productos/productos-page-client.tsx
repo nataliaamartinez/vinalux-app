@@ -176,6 +176,7 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       const nombre = obtenerString(fila[1]) // columna B
       const referencia = obtenerString(fila[2]) // columna C
       const precioCompra = extraerNumero(fila[3]) // columna D
+      const unidades = extraerNumero(fila[4]) // columna E
 
       return {
         nombre,
@@ -192,14 +193,15 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     .filter((item) => {
       if (!item.nombre) return false
       if (!item.referencia) return false
-      if (!item.precio_compra) return false
+      if (item.precio_compra <= 0) return false
 
       const nombreNormalizado = normalizarTexto(item.nombre)
 
       if (
         nombreNormalizado.includes('articulos') ||
         nombreNormalizado.includes('artículos') ||
-        nombreNormalizado.includes('ropa de alta visibilidad')
+        nombreNormalizado.includes('rafasshop') ||
+        nombreNormalizado.includes('reff')
       ) {
         return false
       }
