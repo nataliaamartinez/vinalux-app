@@ -383,7 +383,7 @@ export default function ProductosPageClient() {
     })
 
     const productosParaInsertar = filas
-      .slice(1)
+      .slice(2)
       .map((fila) => {
         const nombre = String(fila[0] || '').trim()
         const referencia = String(fila[1] || '').trim()
@@ -401,7 +401,7 @@ export default function ProductosPageClient() {
           stock_minimo: 0,
         }
       })
-      .filter((item) => item.nombre)
+      .filter((item) => item.nombre && item.nombre.toLowerCase() !== 'producto')
 
     if (productosParaInsertar.length === 0) {
       throw new Error('El Excel no contiene productos válidos.')
