@@ -231,8 +231,10 @@ export default function ProductosPageClient() {
   const [proveedorExcel, setProveedorExcel] = useState<ProveedorExcel>('Makito')
 
   const [toast, setToast] = useState<ToastType>(null)
+  
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
-  const [deleting, setDeleting] = useState(false)
+const [deleting, setDeleting] = useState(false)
+const [deletingProveedor, setDeletingProveedor] = useState(false)
 
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string>('')
@@ -450,6 +452,43 @@ export default function ProductosPageClient() {
   function pedirConfirmacionBorrado(producto: Producto) {
     setDeleteTarget(producto)
   }
+
+  async function borrarProductosPorProveedor() {
+  if (!proveedorFiltro) {
+    mostrarToast('Selecciona primero un proveedor en el filtro.', 'error')
+    return
+  }
+
+  setDeletingProveedor(true)
+  setError(null)
+
+  try {
+    const { error } = await supabase
+      .from('productos')
+      .delete()
+      .eq('proveedor', proveedorFiltro)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    await cargarProductos(true)
+    mostrarToast(
+      `Todos los productos de "${proveedorFiltro}" se borraron correctamente.`,
+      'success'
+    )
+    setProveedorFiltro('')
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'No se pudieron borrar los productos del proveedor.'
+    setError(message)
+    mostrarToast('No se pudieron borrar los productos del proveedor.', 'error')
+  } finally {
+    setDeletingProveedor(false)
+  }
+}
 
   function cerrarModalBorrado() {
     if (deleting) return
@@ -708,15 +747,26 @@ export default function ProductosPageClient() {
               />
             </div>
 
-            <div className="flex flex-col justify-end">
-              <button
-                onClick={limpiarFiltros}
-                type="button"
-                className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Limpiar filtros
-              </button>
-            </div>
+<div className="grid gap-4 md:grid-cols-4 items-end">
+    <button
+    onClick={limpiarFiltros}
+    type="button"
+    className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+  >
+    Limpiar filtros
+  </button>
+
+  <button
+    onClick={borrarProductosPorProveedor}
+    type="button"
+    disabled={!proveedorFiltro || deletingProveedor}
+    className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {deletingProveedor
+      ? 'Borrando proveedor...'
+      : 'Borrar productos del proveedor'}
+  </button>
+</div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
