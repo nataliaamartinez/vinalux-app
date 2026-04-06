@@ -229,6 +229,7 @@ export default function ProductosPageClient() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
+  const [proveedorFiltro, setProveedorFiltro] = useState('')
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
   const [proveedorExcel, setProveedorExcel] = useState<ProveedorExcel>('Makito')
 
@@ -352,6 +353,7 @@ export default function ProductosPageClient() {
   function limpiarFiltros() {
     setBusqueda('')
     setCategoriaFiltro('')
+    setProveedorFiltro('')
   }
 
   function handleImagenChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -537,6 +539,7 @@ export default function ProductosPageClient() {
   const productosFiltrados = useMemo(() => {
     const texto = normalizarTexto(busqueda)
     const categoriaSeleccionada = normalizarCategoria(categoriaFiltro)
+    const proveedorSeleccionado = normalizarTexto(proveedorFiltro)
 
     return productos.filter((producto) => {
       const nombre = normalizarTexto(producto.nombre)
@@ -555,9 +558,12 @@ export default function ProductosPageClient() {
       const coincideCategoria =
         !categoriaSeleccionada || categoriaNormalizada === categoriaSeleccionada
 
-      return coincideBusqueda && coincideCategoria
+      const coincideProveedor =
+        !proveedorSeleccionado || proveedor === proveedorSeleccionado
+
+      return coincideBusqueda && coincideCategoria && coincideProveedor
     })
-  }, [busqueda, categoriaFiltro, productos])
+  }, [busqueda, categoriaFiltro, proveedorFiltro, productos])
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -658,7 +664,7 @@ export default function ProductosPageClient() {
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Filtrar por categoría
@@ -674,6 +680,22 @@ export default function ProductosPageClient() {
                     {categoria}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Filtrar por proveedor
+              </label>
+              <select
+                value={proveedorFiltro}
+                onChange={(e) => setProveedorFiltro(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Todos los proveedores</option>
+                <option value="Makito">Makito</option>
+                <option value="Raffashop">Raffashop</option>
+                <option value="Shein y Temu">Shein y Temu</option>
               </select>
             </div>
 
@@ -885,8 +907,8 @@ export default function ProductosPageClient() {
                   {saving
                     ? 'Guardando...'
                     : editingId
-                      ? 'Guardar cambios'
-                      : 'Guardar producto'}
+                    ? 'Guardar cambios'
+                    : 'Guardar producto'}
                 </button>
 
                 <button
