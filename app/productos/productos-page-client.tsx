@@ -171,11 +171,11 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     defval: '',
   })
 
-  const productos = filas
+  return filas
     .map((fila) => {
-      const nombre = obtenerString(fila[1]) // columna B
-      const referencia = obtenerString(fila[2]) // columna C
-      const precioCompra = extraerNumero(fila[3]) // columna D
+      const nombre = obtenerString(fila[1]) // B
+      const referencia = obtenerString(fila[2]) // C
+      const precioCompra = extraerNumero(fila[3]) // D
 
       return {
         nombre,
@@ -190,15 +190,18 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       }
     })
     .filter((item) => {
+      const nombreNormalizado = normalizarTexto(item.nombre)
+
+      // Solo productos reales
       if (!item.nombre) return false
       if (!item.referencia) return false
       if (item.precio_compra <= 0) return false
 
-      const nombreNormalizado = normalizarTexto(item.nombre)
-
+      // Ignorar títulos/cabeceras
       if (
         nombreNormalizado.includes('articulos') ||
         nombreNormalizado.includes('artículos') ||
+        nombreNormalizado.includes('rafashop') ||
         nombreNormalizado.includes('rafasshop') ||
         nombreNormalizado.includes('reff')
       ) {
@@ -207,8 +210,6 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
 
       return true
     })
-
-  return productos
 }
 
 export default function ProductosPageClient() {
