@@ -34,6 +34,20 @@ type ToastType = {
   type: 'success' | 'error'
 } | null
 
+type ProductoImportado = {
+  nombre: string
+  categoria: string | null
+  proveedor: string | null
+  referencia: string | null
+  imagen_url: string | null
+  precio_compra: number
+  precio_venta: number
+  stock: number
+  stock_minimo: number
+}
+
+type ProveedorExcel = 'Makito' | 'Raffashop'
+
 const initialFormData: FormDataType = {
   nombre: '',
   categoria: '',
@@ -74,17 +88,131 @@ function normalizarCategoria(categoria: string | null | undefined) {
   if (!valor) return ''
 
   if (valor.includes('taza')) return 'taza'
-  if (valor.includes('botellas vino') || valor.includes('botella vino') || valor.includes('vino')) return 'botellas vino'
+  if (
+    valor.includes('botellas vino') ||
+    valor.includes('botella vino') ||
+    valor.includes('vino')
+  ) {
+    return 'botellas vino'
+  }
   if (valor.includes('botella')) return 'botellas'
-  if (valor.includes('pulsera') && valor.includes('extremadura')) return 'pulseras extremadura'
+  if (valor.includes('pulsera') && valor.includes('extremadura')) {
+    return 'pulseras extremadura'
+  }
   if (valor.includes('bolso')) return 'bolsos'
   if (valor.includes('neceser')) return 'neceseres'
   if (valor.includes('llavero')) return 'llaveros'
-  if (valor.includes('vinilo') && valor.includes('suelto')) return 'vinilos sueltos'
+  if (valor.includes('vinilo') && valor.includes('suelto')) {
+    return 'vinilos sueltos'
+  }
   if (valor.includes('camiseta')) return 'camisetas'
   if (valor.includes('sudadera')) return 'sudaderas'
 
   return valor
+}
+
+function extraerNumero(valor: unknown): number {
+  if (valor === null || valor === undefined || valor === '') return 0
+  if (typeof valor === 'number') return valor
+
+  const texto = String(valor)
+    .trim()
+    .replace(/€/g, '')
+    .replace(/\s/g, '')
+    .replace(',', '.')
+
+  const match = texto.match(/-?\d+(\.\d+)?/)
+  return match ? Number(match[0]) : 0
+}
+
+function obtenerString(valor: unknown) {
+  return String(valor ?? '').trim()
+}
+
+function leerProductosMakito(data: ArrayBuffer): ProductoImportado[] {
+  const workbook = XLSX.read(data)
+  const sheetName = workbook.SheetNames[0]
+  const sheet = workbook.Sheets[sheetName]
+
+  const filas = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+    header: 1,
+    defval: '',
+  })
+
+  return filas
+    .slice(2)
+    .map((fila) => {
+      const nombre = obtenerString(fila[0])
+      const referencia = obtenerString(fila[1])
+      const precioCompra = extraerNumero(fila[3])
+
+      return {
+        nombre,
+        categoria: null,
+        proveedor: 'Makito',
+        referencia: referencia || null,
+        imagen_url: null,
+        precio_compra: precioCompra,
+        precio_venta: 0,
+        stock: 0,
+        stock_minimo: 0,
+      }
+    })
+    .filter((item) => item.nombre && item.nombre.toLowerCase() !== 'producto')
+}
+
+function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
+  const workbook = XLSX.read(data)
+  const sheetName = workbook.SheetNames[0]
+  const sheet = workbook.Sheets[sheetName]
+
+  const filas = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+    header: 1,
+    defval: '',
+  })
+
+  const referenciasYaMetidas = new Set<string>()
+
+  const productos = filas
+    .map((fila) => {
+      const nombre = obtenerString(fila[1]) // columna B
+      const referencia = obtenerString(fila[2]) // columna C
+      const precioCompra = extraerNumero(fila[3]) // columna D
+
+      return {
+        nombre,
+        categoria: null,
+        proveedor: 'Raffashop',
+        referencia: referencia || null,
+        imagen_url: null,
+        precio_compra: precioCompra,
+        precio_venta: 0,
+        stock: 0,
+        stock_minimo: 0,
+      }
+    })
+    .filter((item) => {
+      if (!item.nombre) return false
+      if (!item.referencia) return false
+      if (!item.precio_compra) return false
+
+      const nombreNormalizado = normalizarTexto(item.nombre)
+
+      if (
+        nombreNormalizado.includes('articulos') ||
+        nombreNormalizado.includes('artículos') ||
+        nombreNormalizado.includes('ropa de alta visibilidad')
+      ) {
+        return false
+      }
+
+      if (referenciasYaMetidas.has(item.referencia)) return false
+      referenciasYaMetidas.add(item.referencia)
+
+      return true
+    })
+
+  return productos
 }
 
 export default function ProductosPageClient() {
@@ -102,6 +230,7 @@ export default function ProductosPageClient() {
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
+  const [proveedorExcel, setProveedorExcel] = useState<ProveedorExcel>('Makito')
 
   const [toast, setToast] = useState<ToastType>(null)
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
@@ -355,83 +484,55 @@ export default function ProductosPageClient() {
   }
 
   async function importarExcel(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0]
-  if (!file) return
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  function extraerNumero(valor: unknown) {
-    if (valor === null || valor === undefined || valor === '') return 0
-    if (typeof valor === 'number') return valor
+    try {
+      setLoading(true)
+      setError(null)
+      setLoadingText('Importando productos desde Excel...')
 
-    const texto = String(valor).trim().replace(',', '.')
-    const match = texto.match(/-?\d+(\.\d+)?/)
+      const data = await file.arrayBuffer()
 
-    return match ? Number(match[0]) : 0
-  }
+      let productosParaInsertar: ProductoImportado[] = []
 
-  try {
-    setLoading(true)
-    setLoadingText('Importando productos desde Excel...')
+      if (proveedorExcel === 'Makito') {
+        productosParaInsertar = leerProductosMakito(data)
+      }
 
-    const data = await file.arrayBuffer()
-    const workbook = XLSX.read(data)
-    const sheetName = workbook.SheetNames[0]
-    const sheet = workbook.Sheets[sheetName]
+      if (proveedorExcel === 'Raffashop') {
+        productosParaInsertar = leerProductosRaffashop(data)
+      }
 
-    const filas = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
-      header: 1,
-      defval: '',
-    })
+      if (productosParaInsertar.length === 0) {
+        throw new Error('El Excel no contiene productos válidos.')
+      }
 
-    const productosParaInsertar = filas
-      .slice(2)
-      .map((fila) => {
-        const nombre = String(fila[0] || '').trim()
-        const referencia = String(fila[1] || '').trim()
-        const precioCompra = extraerNumero(fila[3])
+      const { error } = await supabase
+        .from('productos')
+        .insert(productosParaInsertar)
 
-        return {
-          nombre,
-          categoria: null,
-          proveedor: 'Makito',
-          referencia: referencia || null,
-          imagen_url: null,
-          precio_compra: precioCompra,
-          precio_venta: 0,
-          stock: 0,
-          stock_minimo: 0,
-        }
-      })
-      .filter((item) => item.nombre && item.nombre.toLowerCase() !== 'producto')
+      if (error) {
+        throw new Error(error.message)
+      }
 
-    if (productosParaInsertar.length === 0) {
-      throw new Error('El Excel no contiene productos válidos.')
-    }
-
-    const { error } = await supabase
-      .from('productos')
-      .insert(productosParaInsertar)
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    await cargarProductos(true)
-    mostrarToast(
-      `${productosParaInsertar.length} productos importados correctamente.`,
-      'success'
-    )
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Error al importar el Excel.'
-    setError(message)
-    mostrarToast('No se pudo importar el Excel.', 'error')
-  } finally {
-    setLoading(false)
-    if (fileExcelRef.current) {
-      fileExcelRef.current.value = ''
+      await cargarProductos(true)
+      mostrarToast(
+        `${productosParaInsertar.length} productos importados correctamente.`,
+        'success'
+      )
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Error al importar el Excel.'
+      setError(message)
+      mostrarToast('No se pudo importar el Excel.', 'error')
+    } finally {
+      setLoading(false)
+      if (fileExcelRef.current) {
+        fileExcelRef.current.value = ''
+      }
     }
   }
-}
 
   const productosFiltrados = useMemo(() => {
     const texto = normalizarTexto(busqueda)
@@ -519,7 +620,7 @@ export default function ProductosPageClient() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 md:flex-row">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <input
               ref={fileExcelRef}
               type="file"
@@ -527,6 +628,17 @@ export default function ProductosPageClient() {
               onChange={importarExcel}
               className="hidden"
             />
+
+            <select
+              value={proveedorExcel}
+              onChange={(e) =>
+                setProveedorExcel(e.target.value as ProveedorExcel)
+              }
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            >
+              <option value="Makito">Makito</option>
+              <option value="Raffashop">Raffashop</option>
+            </select>
 
             <button
               type="button"
