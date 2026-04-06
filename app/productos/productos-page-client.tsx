@@ -171,8 +171,6 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     defval: '',
   })
 
-  const referenciasYaMetidas = new Set<string>()
-
   const productos = filas
     .map((fila) => {
       const nombre = obtenerString(fila[1]) // columna B
@@ -205,9 +203,6 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       ) {
         return false
       }
-
-      if (referenciasYaMetidas.has(item.referencia)) return false
-      referenciasYaMetidas.add(item.referencia)
 
       return true
     })
