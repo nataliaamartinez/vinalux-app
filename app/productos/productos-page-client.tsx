@@ -176,7 +176,6 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       const nombre = obtenerString(fila[1]) // columna B
       const referencia = obtenerString(fila[2]) // columna C
       const precioCompra = extraerNumero(fila[3]) // columna D
-      const unidades = extraerNumero(fila[4]) // columna E
 
       return {
         nombre,
@@ -224,17 +223,19 @@ export default function ProductosPageClient() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+
   const [busqueda, setBusqueda] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('')
   const [proveedorFiltro, setProveedorFiltro] = useState('')
+  const [proveedorExcel, setProveedorExcel] =
+    useState<ProveedorExcel>('Makito')
+
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
-  const [proveedorExcel, setProveedorExcel] = useState<ProveedorExcel>('Makito')
 
   const [toast, setToast] = useState<ToastType>(null)
-  
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
-const [deleting, setDeleting] = useState(false)
-const [deletingProveedor, setDeletingProveedor] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deletingProveedor, setDeletingProveedor] = useState(false)
 
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string>('')
@@ -382,7 +383,6 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
     }
 
     const { data } = supabase.storage.from('productos').getPublicUrl(filePath)
-
     return data.publicUrl
   }
 
@@ -453,43 +453,6 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
     setDeleteTarget(producto)
   }
 
-  async function borrarProductosPorProveedor() {
-  if (!proveedorFiltro) {
-    mostrarToast('Selecciona primero un proveedor en el filtro.', 'error')
-    return
-  }
-
-  setDeletingProveedor(true)
-  setError(null)
-
-  try {
-    const { error } = await supabase
-      .from('productos')
-      .delete()
-      .eq('proveedor', proveedorFiltro)
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    await cargarProductos(true)
-    mostrarToast(
-      `Todos los productos de "${proveedorFiltro}" se borraron correctamente.`,
-      'success'
-    )
-    setProveedorFiltro('')
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : 'No se pudieron borrar los productos del proveedor.'
-    setError(message)
-    mostrarToast('No se pudieron borrar los productos del proveedor.', 'error')
-  } finally {
-    setDeletingProveedor(false)
-  }
-}
-
   function cerrarModalBorrado() {
     if (deleting) return
     setDeleteTarget(null)
@@ -519,6 +482,49 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
 
     await cargarProductos(true)
     mostrarToast(`Producto "${nombreBorrado}" borrado correctamente.`, 'success')
+  }
+
+  async function borrarProductosPorProveedor() {
+    if (!proveedorFiltro) {
+      mostrarToast('Selecciona primero un proveedor en el filtro.', 'error')
+      return
+    }
+
+    const confirmar = window.confirm(
+      `¿Seguro que quieres borrar todos los productos del proveedor "${proveedorFiltro}"?`
+    )
+
+    if (!confirmar) return
+
+    setDeletingProveedor(true)
+    setError(null)
+
+    try {
+      const { error } = await supabase
+        .from('productos')
+        .delete()
+        .eq('proveedor', proveedorFiltro)
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      await cargarProductos(true)
+      mostrarToast(
+        `Todos los productos de "${proveedorFiltro}" se borraron correctamente.`,
+        'success'
+      )
+      setProveedorFiltro('')
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron borrar los productos del proveedor.'
+      setError(message)
+      mostrarToast('No se pudieron borrar los productos del proveedor.', 'error')
+    } finally {
+      setDeletingProveedor(false)
+    }
   }
 
   async function importarExcel(e: React.ChangeEvent<HTMLInputElement>) {
@@ -700,7 +706,7 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-4 md:items-end">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Filtrar por categoría
@@ -729,9 +735,11 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               >
                 <option value="">Todos los proveedores</option>
-                <option value="Makito">Makito</option>
-                <option value="Raffashop">Raffashop</option>
-                <option value="Shein y Temu">Shein y Temu</option>
+                {proveedoresDisponibles.map((proveedor) => (
+                  <option key={proveedor} value={proveedor}>
+                    {proveedor}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -747,26 +755,26 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
               />
             </div>
 
-<div className="grid gap-4 md:grid-cols-4 items-end">
-    <button
-    onClick={limpiarFiltros}
-    type="button"
-    className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-  >
-    Limpiar filtros
-  </button>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={limpiarFiltros}
+                type="button"
+                className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Limpiar filtros
+              </button>
 
-  <button
-    onClick={borrarProductosPorProveedor}
-    type="button"
-    disabled={!proveedorFiltro || deletingProveedor}
-    className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    {deletingProveedor
-      ? 'Borrando proveedor...'
-      : 'Borrar productos del proveedor'}
-  </button>
-</div>
+              <button
+                onClick={borrarProductosPorProveedor}
+                type="button"
+                disabled={!proveedorFiltro || deletingProveedor}
+                className="w-full rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingProveedor
+                  ? 'Borrando proveedor...'
+                  : 'Borrar productos del proveedor'}
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
@@ -939,7 +947,7 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
                     <img
                       src={imagenPreview}
                       alt="Vista previa"
-                      className="h-40 w-40 rounded-2xl object-cover border border-slate-200"
+                      className="h-40 w-40 rounded-2xl border border-slate-200 object-cover"
                     />
                   </div>
                 )}
@@ -1029,7 +1037,7 @@ const [deletingProveedor, setDeletingProveedor] = useState(false)
                           <img
                             src={producto.imagen_url}
                             alt={producto.nombre}
-                            className="h-14 w-14 rounded-xl object-cover border border-slate-200"
+                            className="h-14 w-14 rounded-xl border border-slate-200 object-cover"
                           />
                         ) : (
                           <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-400">
