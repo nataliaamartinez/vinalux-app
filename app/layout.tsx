@@ -52,7 +52,7 @@ export default function RootLayout({
     <html lang="es">
       <body className="bg-slate-900 text-slate-900">
         <div className="min-h-screen md:flex">
-          <aside className="w-full border-b border-slate-700 bg-slate-950 md:min-h-screen md:w-72 md:border-b-0 md:border-r">
+          <aside className="w-full border-b border-slate-700 bg-purple-900 md:min-h-screen md:w-72 md:border-b-0 md:border-r">
             <div className="flex items-center justify-between p-4 md:block md:p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-sky-500 to-emerald-400 shadow-lg">
