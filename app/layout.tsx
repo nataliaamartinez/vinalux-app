@@ -1,4 +1,4 @@
-import './globals.css'
+import './global.css'
 import type { Metadata, Viewport } from 'next'
 import {
   LayoutDashboard,
@@ -90,6 +90,9 @@ export default function RootLayout({
                   <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                     Presupuestos
                   </SidebarLink>
+                  <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
+                    Venta al Publico
+                  </SidebarLink>
                 </nav>
               </details>
             </div>
@@ -121,6 +124,9 @@ export default function RootLayout({
                 </SidebarLink>
                 <SidebarLink href="/presupuestos" icon={<FileText size={18} />}>
                   Presupuestos
+                </SidebarLink>
+                <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
+                  Venta Al Publico
                 </SidebarLink>
               </nav>
             </div>
