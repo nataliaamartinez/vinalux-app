@@ -144,7 +144,7 @@ function leerProductosMakito(data: ArrayBuffer): ProductoImportado[] {
     .map((fila) => {
       const nombre = obtenerString(fila[0])
       const referencia = obtenerString(fila[1])
-      const precioCompra = extraerNumero(fila[3])
+      const precioCompra = extraerNumero(fila[4])
 
       return {
         nombre,
@@ -171,12 +171,38 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     defval: '',
   })
 
+  const filaCabecera = filas.find((fila) =>
+    fila.some((celda) => normalizarTexto(String(celda)).includes('producto'))
+  )
+
+  if (!filaCabecera) return []
+
+  const indiceProducto = filaCabecera.findIndex((celda) =>
+    normalizarTexto(String(celda)).includes('producto')
+  )
+
+  const indiceReferencia = filaCabecera.findIndex((celda) =>
+    normalizarTexto(String(celda)).includes('referencia')
+  )
+
+  const indicePrecioConIva = filaCabecera.findIndex((celda) => {
+    const valor = normalizarTexto(String(celda))
+    return valor.includes('precio') && valor.includes('iva')
+  })
+
+  if (
+    indiceProducto === -1 ||
+    indiceReferencia === -1 ||
+    indicePrecioConIva === -1
+  ) {
+    return []
+  }
+
   return filas
     .map((fila) => {
-      const nombre = obtenerString(fila[0]) // PRODUCTO
-      const referencia = obtenerString(fila[1]) // REFERENCIA
-      const precioCompra = extraerNumero(fila[2]) // PRECIO
-      const unidades = extraerNumero(fila[3]) // UNIDADES
+      const nombre = obtenerString(fila[indiceProducto])
+      const referencia = obtenerString(fila[indiceReferencia])
+      const precioConIva = extraerNumero(fila[indicePrecioConIva])
 
       return {
         nombre,
@@ -184,7 +210,7 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
         proveedor: 'Raffashop',
         referencia: referencia || null,
         imagen_url: null,
-        precio_compra: precioCompra,
+        precio_compra: precioConIva,
         precio_venta: 0,
         stock: 0,
         stock_minimo: 0,
