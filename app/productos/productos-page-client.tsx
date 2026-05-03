@@ -171,34 +171,52 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     defval: '',
   })
 
-  const filaCabecera = filas.find((fila) =>
-    fila.some((celda) => normalizarTexto(String(celda)).includes('producto'))
-  )
+  const indiceCabecera = filas.findIndex((fila) => {
+    const textos = fila.map((celda) => normalizarTexto(String(celda)))
+    return (
+      textos.some((t) => t.includes('producto')) &&
+      textos.some((t) => t.includes('referencia'))
+    )
+  })
 
-  if (!filaCabecera) return []
+  if (indiceCabecera === -1) {
+    throw new Error('No se encontró la cabecera del Excel de Raffashop.')
+  }
 
-  const indiceProducto = filaCabecera.findIndex((celda) =>
+  const cabecera = filas[indiceCabecera]
+
+  const indiceProducto = cabecera.findIndex((celda) =>
     normalizarTexto(String(celda)).includes('producto')
   )
 
-  const indiceReferencia = filaCabecera.findIndex((celda) =>
+  const indiceReferencia = cabecera.findIndex((celda) =>
     normalizarTexto(String(celda)).includes('referencia')
   )
 
-  const indicePrecioConIva = filaCabecera.findIndex((celda) => {
-    const valor = normalizarTexto(String(celda))
-    return valor.includes('precio') && valor.includes('iva')
+  let indicePrecioConIva = cabecera.findIndex((celda) => {
+    const texto = normalizarTexto(String(celda))
+    return texto.includes('precio') && texto.includes('iva')
   })
+
+  if (indicePrecioConIva === -1) {
+    indicePrecioConIva = cabecera.findIndex((celda) => {
+      const texto = normalizarTexto(String(celda))
+      return texto.includes('pvp') || texto.includes('iva incluido')
+    })
+  }
 
   if (
     indiceProducto === -1 ||
     indiceReferencia === -1 ||
     indicePrecioConIva === -1
   ) {
-    return []
+    throw new Error(
+      'No se encontraron las columnas Producto, Referencia o Precio con IVA.'
+    )
   }
 
   return filas
+    .slice(indiceCabecera + 1)
     .map((fila) => {
       const nombre = obtenerString(fila[indiceProducto])
       const referencia = obtenerString(fila[indiceReferencia])
@@ -237,7 +255,6 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       return true
     })
 }
-
 export default function ProductosPageClient() {
   const searchParams = useSearchParams()
   const highlightedId = searchParams.get('id')
