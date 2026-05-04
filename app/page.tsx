@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import {
   Box,
+  Wallet,
   ShoppingCart,
   AlertTriangle,
   TrendingUp,
@@ -59,7 +60,8 @@ export default function DashboardPage() {
     const [pedidosRes, finanzasRes, productosRes] = await Promise.all([
       supabase
         .from('pedidos')
-        .select(`
+        .select(
+          `
           id,
           numero_pedido,
           cantidad,
@@ -70,13 +72,15 @@ export default function DashboardPage() {
           created_at,
           clientes(nombre),
           productos(nombre)
-        `)
+        `
+        )
         .order('created_at', { ascending: false })
         .limit(8),
 
       supabase
         .from('finanzas')
-        .select(`
+        .select(
+          `
           id,
           tipo,
           importe,
@@ -86,7 +90,8 @@ export default function DashboardPage() {
           cliente_proveedor,
           estado,
           created_at
-        `)
+        `
+        )
         .order('fecha', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(8),
@@ -100,8 +105,7 @@ export default function DashboardPage() {
     if (pedidosRes.error) {
       setError(pedidosRes.error.message)
     } else {
-      setPedidos((pedidosRes.data as any[]) || [])
-    }
+setPedidos((pedidosRes.data as any[]) || [])    }
 
     if (finanzasRes.error) {
       setError(finanzasRes.error.message)
@@ -186,8 +190,8 @@ export default function DashboardPage() {
   }, [productos])
 
   return (
-    <main className="min-h-screen w-full max-w-none bg-slate-50 p-6 md:p-10">
-      <div className="w-full max-w-none">
+    <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="">
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Vinalux</p>
@@ -198,10 +202,16 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link href="/pedidos" className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800">
+            <Link
+              href="/pedidos"
+              className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
               Ver pedidos
             </Link>
-            <Link href="/finanzas" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+            <Link
+              href="/finanzas"
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
               Ver finanzas
             </Link>
           </div>
@@ -221,41 +231,125 @@ export default function DashboardPage() {
 
         {!loading && (
           <>
-            <div className="mb-6 grid w-full gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                ['Total pedidos', resumen.totalPedidos, ShoppingCart, 'bg-sky-100', 'text-sky-700', 'text-slate-900'],
-                ['Pedidos pendientes', resumen.pedidosPendientes, AlertTriangle, 'bg-yellow-100', 'text-yellow-700', 'text-slate-900'],
-                ['Ingresos', formatearEuros(resumen.ingresos), TrendingUp, 'bg-emerald-100', 'text-emerald-700', 'text-emerald-600'],
-                ['Gastos', formatearEuros(resumen.gastos), TrendingDown, 'bg-red-100', 'text-red-700', 'text-red-600'],
-                ['Beneficio neto', formatearEuros(resumen.beneficioNeto), Scale, 'bg-violet-100', 'text-violet-700', resumen.beneficioNeto >= 0 ? 'text-violet-700' : 'text-red-600'],
-                ['Stock bajo', resumen.productosStockBajo, Box, 'bg-orange-100', 'text-orange-700', 'text-slate-900'],
-              ].map(([titulo, valor, Icon, bg, iconColor, textColor]: any) => (
-                <div key={titulo} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`rounded-2xl ${bg} p-3`}>
-                      <Icon className={`h-5 w-5 ${iconColor}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-500">{titulo}</p>
-                      <p className={`mt-2 text-3xl font-bold ${textColor}`}>
-                        {valor}
-                      </p>
-                    </div>
+            <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-sky-100 p-3">
+                    <ShoppingCart className="h-5 w-5 text-sky-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Total pedidos
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.totalPedidos}
+                    </p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-yellow-100 p-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Pedidos pendientes
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.pedidosPendientes}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-emerald-100 p-3">
+                    <TrendingUp className="h-5 w-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Ingresos
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-emerald-600">
+                      {formatearEuros(resumen.ingresos)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-red-100 p-3">
+                    <TrendingDown className="h-5 w-5 text-red-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Gastos</p>
+                    <p className="mt-2 text-3xl font-bold text-red-600">
+                      {formatearEuros(resumen.gastos)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-violet-100 p-3">
+                    <Scale className="h-5 w-5 text-violet-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Beneficio neto
+                    </p>
+                    <p
+                      className={`mt-2 text-3xl font-bold ${
+                        resumen.beneficioNeto >= 0
+                          ? 'text-violet-700'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {formatearEuros(resumen.beneficioNeto)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-orange-100 p-3">
+                    <Box className="h-5 w-5 text-orange-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">
+                      Stock bajo
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {resumen.productosStockBajo}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid w-full gap-6 xl:grid-cols-[2fr_1fr]">
-              <div>
+            <div className="grid gap-6 xl:grid-cols-3">
+              <div className="xl:col-span-2">
                 <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
-                      <h2 className="text-lg font-semibold text-slate-900">Últimos pedidos</h2>
-                      <p className="mt-1 text-sm text-slate-500">Pedidos recientes del sistema.</p>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Últimos pedidos
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Pedidos recientes del sistema.
+                      </p>
                     </div>
 
-                    <Link href="/pedidos" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900">
+                    <Link
+                      href="/pedidos"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
                       Ver todos
                       <ArrowRight className="h-4 w-4" />
                     </Link>
@@ -276,20 +370,31 @@ export default function DashboardPage() {
                       <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                         {pedidos.map((pedido) => (
                           <tr key={pedido.id} className="hover:bg-slate-50">
-                            <td className="px-6 py-4 font-medium text-slate-900">{pedido.clientes?.nombre || '-'}</td>
-                            <td className="px-6 py-4">{pedido.productos?.nombre || '-'}</td>
+                            <td className="px-6 py-4 font-medium text-slate-900">
+                              {pedido.clientes?.nombre || '-'}
+                            </td>
+                            <td className="px-6 py-4">
+                              {pedido.productos?.nombre || '-'}
+                            </td>
                             <td className="px-6 py-4">{pedido.estado || '-'}</td>
                             <td className="px-6 py-4">
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                pedido.estado_pago === 'pagado'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  pedido.estado_pago === 'pagado'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}
+                              >
                                 {pedido.estado_pago || 'pendiente'}
                               </span>
                             </td>
                             <td className="px-6 py-4 font-semibold text-slate-900">
-                              {formatearEuros(calcularTotalPedido(pedido.cantidad, pedido.precio_venta))}
+                              {formatearEuros(
+                                calcularTotalPedido(
+                                  pedido.cantidad,
+                                  pedido.precio_venta
+                                )
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -301,11 +406,18 @@ export default function DashboardPage() {
                 <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
-                      <h2 className="text-lg font-semibold text-slate-900">Últimos movimientos financieros</h2>
-                      <p className="mt-1 text-sm text-slate-500">Ingresos y gastos recientes.</p>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Últimos movimientos financieros
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Ingresos y gastos recientes.
+                      </p>
                     </div>
 
-                    <Link href="/finanzas" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900">
+                    <Link
+                      href="/finanzas"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
                       Ver finanzas
                       <ArrowRight className="h-4 w-4" />
                     </Link>
@@ -325,24 +437,30 @@ export default function DashboardPage() {
                       <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                         {finanzas.map((movimiento) => (
                           <tr key={movimiento.id} className="hover:bg-slate-50">
-                            <td className="px-6 py-4">{formatearFecha(movimiento.fecha)}</td>
                             <td className="px-6 py-4">
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                movimiento.tipo === 'ingreso'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-red-100 text-red-700'
-                              }`}>
+                              {formatearFecha(movimiento.fecha)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                  movimiento.tipo === 'ingreso'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
                                 {movimiento.tipo || '-'}
                               </span>
                             </td>
                             <td className="px-6 py-4 font-medium text-slate-900">
                               {movimiento.descripcion || '-'}
                             </td>
-                            <td className={`px-6 py-4 font-semibold ${
-                              movimiento.tipo === 'ingreso'
-                                ? 'text-emerald-600'
-                                : 'text-red-600'
-                            }`}>
+                            <td
+                              className={`px-6 py-4 font-semibold ${
+                                movimiento.tipo === 'ingreso'
+                                  ? 'text-emerald-600'
+                                  : 'text-red-600'
+                              }`}
+                            >
                               {formatearEuros(movimiento.importe ?? 0)}
                             </td>
                           </tr>
@@ -357,13 +475,18 @@ export default function DashboardPage() {
                 <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
-                      <h2 className="text-lg font-semibold text-slate-900">Alertas de stock</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">
+                        Alertas de stock
+                      </h2>
                       <p className="mt-1 text-sm text-slate-500">
                         Productos igual o por debajo del stock mínimo.
                       </p>
                     </div>
 
-                    <Link href="/productos" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900">
+                    <Link
+                      href="/productos"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
+                    >
                       Ver productos
                       <ArrowRight className="h-4 w-4" />
                     </Link>
@@ -378,7 +501,10 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       productosConStockBajo.map((producto) => (
-                        <div key={producto.id} className="flex items-center justify-between p-6">
+                        <div
+                          key={producto.id}
+                          className="flex items-center justify-between p-6"
+                        >
                           <div>
                             <p className="font-semibold text-slate-900">
                               {producto.nombre || '-'}
@@ -389,11 +515,13 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="text-right">
-                            <p className={`text-lg font-bold ${
-                              (producto.stock ?? 0) === 0
-                                ? 'text-red-600'
-                                : 'text-orange-600'
-                            }`}>
+                            <p
+                              className={`text-lg font-bold ${
+                                (producto.stock ?? 0) === 0
+                                  ? 'text-red-600'
+                                  : 'text-orange-600'
+                              }`}
+                            >
                               {producto.stock ?? 0}
                             </p>
                             <p className="text-xs text-slate-500">unidades</p>
@@ -413,16 +541,28 @@ export default function DashboardPage() {
                   </p>
 
                   <div className="mt-5 grid gap-3">
-                    <Link href="/pedidos" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                    <Link
+                      href="/pedidos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
                       Ir a pedidos
                     </Link>
-                    <Link href="/gastos" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                    <Link
+                      href="/gastos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
                       Ir a gastos
                     </Link>
-                    <Link href="/finanzas" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                    <Link
+                      href="/finanzas"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
                       Ir a finanzas
                     </Link>
-                    <Link href="/productos" className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                    <Link
+                      href="/productos"
+                      className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
                       Revisar stock
                     </Link>
                   </div>

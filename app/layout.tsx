@@ -132,8 +132,8 @@ export default function RootLayout({
             </div>
           </aside>
 
-          <main className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.08),_transparent_30%),linear-gradient(to_bottom,_#0b1120,_#111827)] p-4 md:p-8">
-            <div className="mx-auto w-full max-w-7xl">
+                    <main className="flex-1 min-w-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.08),_transparent_30%),linear-gradient(to_bottom,_#0b1120,_#111827)] p-4 md:p-8">
+            <div className="w-full max-w-none">
               {children}
             </div>
           </main>
