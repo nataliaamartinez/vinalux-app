@@ -621,7 +621,7 @@ export default function ProductosPageClient() {
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto">
         {toast && (
           <div className="fixed right-4 top-4 z-50">
             <div
