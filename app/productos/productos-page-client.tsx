@@ -25,6 +25,7 @@ type FormDataType = {
   proveedor: string
   referencia: string
   precio_compra: string
+  precio_con_iva: string
   precio_venta: string
   stock: string
   stock_minimo: string
@@ -56,6 +57,7 @@ const initialFormData: FormDataType = {
   proveedor: '',
   referencia: '',
   precio_compra: '',
+  precio_con_iva: '',
   precio_venta: '',
   stock: '',
   stock_minimo: '',
@@ -335,6 +337,8 @@ export default function ProductosPageClient() {
       referencia: producto.referencia || '',
       precio_compra:
         producto.precio_compra !== null ? String(producto.precio_compra) : '',
+        precio_con_iva:
+  producto.precio_con_iva !== null ? String(producto.precio_con_iva) : '',
       precio_venta:
         producto.precio_venta !== null ? String(producto.precio_venta) : '',
       stock: producto.stock !== null ? String(producto.stock) : '',
@@ -412,6 +416,9 @@ export default function ProductosPageClient() {
         precio_compra: formData.precio_compra
           ? Number(formData.precio_compra)
           : 0,
+          precio_con_iva: formData.precio_con_iva
+  ? Number(formData.precio_con_iva)
+  : 0,
         precio_venta: formData.precio_venta ? Number(formData.precio_venta) : 0,
         stock: formData.stock ? Number(formData.stock) : 0,
         stock_minimo: formData.stock_minimo
@@ -892,6 +899,20 @@ export default function ProductosPageClient() {
                   placeholder="Ej. 3.50"
                 />
               </div>
+              <div>
+  <label className="mb-1 block text-sm font-medium text-slate-700">
+    Precio con IVA
+  </label>
+  <input
+    name="precio_con_iva"
+    type="number"
+    step="0.01"
+    value={formData.precio_con_iva}
+    onChange={handleChange}
+    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+    placeholder="Ej. 4.24"
+  />
+</div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
