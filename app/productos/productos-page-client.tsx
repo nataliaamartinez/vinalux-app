@@ -172,14 +172,16 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
   const filas = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
     header: 1,
     defval: '',
+    blankrows: false,
   })
 
   return filas
+    .slice(5) // empezamos justo después de cabeceras y fórmula
     .map((fila) => {
-      const nombre = obtenerString(fila[0])
-      const referencia = obtenerString(fila[1])
-      const precioCosto = extraerNumero(fila[2])
-      const precioConIva = extraerNumero(fila[3])
+      const nombre = obtenerString(fila[1]) // B
+      const referencia = obtenerString(fila[2]) // C
+      const precioCosto = extraerNumero(fila[3]) // D
+      const precioConIva = extraerNumero(fila[4]) // E
 
       return {
         nombre,
