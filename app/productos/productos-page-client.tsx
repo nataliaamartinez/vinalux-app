@@ -176,12 +176,12 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
   })
 
   return filas
-    .slice(5) // empezamos justo después de cabeceras y fórmula
+    .slice(5)
     .map((fila) => {
-      const nombre = obtenerString(fila[1]) // B
-      const referencia = obtenerString(fila[2]) // C
-      const precioCosto = extraerNumero(fila[3]) // D
-      const precioConIva = extraerNumero(fila[4]) // E
+      const nombre = obtenerString(fila[0]) // nombre artículo
+      const referencia = obtenerString(fila[1]) // referencia
+      const precioCosto = extraerNumero(fila[2]) // precio compra
+      const precioConIva = extraerNumero(fila[3]) // precio IVA
 
       return {
         nombre,
