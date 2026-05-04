@@ -14,6 +14,7 @@ type Producto = {
   imagen_url: string | null
   precio_compra: number | null
   precio_venta: number | null
+  precio_con_iva: number | null
   stock: number | null
   stock_minimo: number | null
 }
@@ -42,6 +43,7 @@ type ProductoImportado = {
   imagen_url: string | null
   precio_compra: number
   precio_venta: number
+  precio_con_iva: number
   stock: number
   stock_minimo: number
 }
@@ -144,7 +146,7 @@ function leerProductosMakito(data: ArrayBuffer): ProductoImportado[] {
     .map((fila) => {
       const nombre = obtenerString(fila[0])
       const referencia = obtenerString(fila[1])
-      const precioCompra = extraerNumero(fila[4])
+      const precioCompra = extraerNumero(fila[3])
 
       return {
         nombre,
@@ -173,9 +175,10 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
 
   return filas
     .map((fila) => {
-      const nombre = obtenerString(fila[1]) // columna B
-      const referencia = obtenerString(fila[2]) // columna C
-      const precioConIva = extraerNumero(fila[4]) // columna E
+      const nombre = obtenerString(fila[1]) // B
+      const referencia = obtenerString(fila[2]) // C
+      const precioCosto = extraerNumero(fila[3]) // D (coste)
+      const precioConIva = extraerNumero(fila[4]) // E (IVA)
 
       return {
         nombre,
@@ -183,8 +186,9 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
         proveedor: 'Raffashop',
         referencia: referencia || null,
         imagen_url: null,
-        precio_compra: precioConIva,
+        precio_compra: precioCosto,
         precio_venta: 0,
+        precio_con_iva: precioConIva, // 👈 AQUÍ
         stock: 0,
         stock_minimo: 0,
       }
@@ -192,15 +196,14 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     .filter((item) => {
       if (!item.nombre) return false
       if (!item.referencia) return false
-      if (item.precio_compra <= 0) return false
+      if (item.precio_con_iva <= 0) return false
 
       const nombreNormalizado = normalizarTexto(item.nombre)
 
       if (
         nombreNormalizado.includes('articulos') ||
         nombreNormalizado.includes('artículos') ||
-        nombreNormalizado.includes('rafashop') ||
-        nombreNormalizado.includes('rafasshop')
+        nombreNormalizado.includes('rafashop')
       ) {
         return false
       }
@@ -1014,6 +1017,7 @@ export default function ProductosPageClient() {
                     <th className="px-6 py-4 font-semibold">Proveedor</th>
                     <th className="px-6 py-4 font-semibold">Referencia</th>
                     <th className="px-6 py-4 font-semibold">Precio compra</th>
+                    <th className="px-6 py-4 font-semibold">Precio IVA</th>
                     <th className="px-6 py-4 font-semibold">Precio venta</th>
                     <th className="px-6 py-4 font-semibold">Stock</th>
                     <th className="px-6 py-4 font-semibold">Stock mínimo</th>
@@ -1051,6 +1055,9 @@ export default function ProductosPageClient() {
                       <td className="px-6 py-4">
                         {producto.precio_compra ?? 0} €
                       </td>
+                      <td className="px-6 py-4 font-semibold text-blue-600">
+  {producto.precio_con_iva ?? 0} €
+</td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
                         {producto.precio_venta ?? 0} €
                       </td>
