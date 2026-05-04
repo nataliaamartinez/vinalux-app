@@ -156,6 +156,7 @@ function leerProductosMakito(data: ArrayBuffer): ProductoImportado[] {
         imagen_url: null,
         precio_compra: precioCompra,
         precio_venta: 0,
+        precio_con_iva: 0,
         stock: 0,
         stock_minimo: 0,
       }
@@ -175,10 +176,10 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
 
   return filas
     .map((fila) => {
-      const nombre = obtenerString(fila[1]) // B
-      const referencia = obtenerString(fila[2]) // C
-      const precioCosto = extraerNumero(fila[3]) // D (coste)
-      const precioConIva = extraerNumero(fila[4]) // E (IVA)
+      const nombre = obtenerString(fila[0])
+      const referencia = obtenerString(fila[1])
+      const precioCosto = extraerNumero(fila[2])
+      const precioConIva = extraerNumero(fila[3])
 
       return {
         nombre,
@@ -188,7 +189,7 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
         imagen_url: null,
         precio_compra: precioCosto,
         precio_venta: 0,
-        precio_con_iva: precioConIva, // 👈 AQUÍ
+        precio_con_iva: precioConIva,
         stock: 0,
         stock_minimo: 0,
       }
@@ -196,6 +197,7 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     .filter((item) => {
       if (!item.nombre) return false
       if (!item.referencia) return false
+      if (item.precio_compra <= 0) return false
       if (item.precio_con_iva <= 0) return false
 
       const nombreNormalizado = normalizarTexto(item.nombre)
@@ -203,7 +205,8 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       if (
         nombreNormalizado.includes('articulos') ||
         nombreNormalizado.includes('artículos') ||
-        nombreNormalizado.includes('rafashop')
+        nombreNormalizado.includes('rafashop') ||
+        nombreNormalizado.includes('rafasshop')
       ) {
         return false
       }
