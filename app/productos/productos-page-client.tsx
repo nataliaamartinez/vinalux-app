@@ -171,56 +171,11 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
     defval: '',
   })
 
-  const indiceCabecera = filas.findIndex((fila) => {
-    const textos = fila.map((celda) => normalizarTexto(String(celda)))
-    return (
-      textos.some((t) => t.includes('producto')) &&
-      textos.some((t) => t.includes('referencia'))
-    )
-  })
-
-  if (indiceCabecera === -1) {
-    throw new Error('No se encontró la cabecera del Excel de Raffashop.')
-  }
-
-  const cabecera = filas[indiceCabecera]
-
-  const indiceProducto = cabecera.findIndex((celda) =>
-    normalizarTexto(String(celda)).includes('producto')
-  )
-
-  const indiceReferencia = cabecera.findIndex((celda) =>
-    normalizarTexto(String(celda)).includes('referencia')
-  )
-
-  let indicePrecioConIva = cabecera.findIndex((celda) => {
-    const texto = normalizarTexto(String(celda))
-    return texto.includes('precio') && texto.includes('iva')
-  })
-
-  if (indicePrecioConIva === -1) {
-    indicePrecioConIva = cabecera.findIndex((celda) => {
-      const texto = normalizarTexto(String(celda))
-      return texto.includes('pvp') || texto.includes('iva incluido')
-    })
-  }
-
-  if (
-    indiceProducto === -1 ||
-    indiceReferencia === -1 ||
-    indicePrecioConIva === -1
-  ) {
-    throw new Error(
-      'No se encontraron las columnas Producto, Referencia o Precio con IVA.'
-    )
-  }
-
   return filas
-    .slice(indiceCabecera + 1)
     .map((fila) => {
-      const nombre = obtenerString(fila[indiceProducto])
-      const referencia = obtenerString(fila[indiceReferencia])
-      const precioConIva = extraerNumero(fila[indicePrecioConIva])
+      const nombre = obtenerString(fila[1]) // columna B
+      const referencia = obtenerString(fila[2]) // columna C
+      const precioConIva = extraerNumero(fila[4]) // columna E
 
       return {
         nombre,
@@ -242,12 +197,10 @@ function leerProductosRaffashop(data: ArrayBuffer): ProductoImportado[] {
       const nombreNormalizado = normalizarTexto(item.nombre)
 
       if (
-        nombreNormalizado === 'producto' ||
         nombreNormalizado.includes('articulos') ||
         nombreNormalizado.includes('artículos') ||
         nombreNormalizado.includes('rafashop') ||
-        nombreNormalizado.includes('rafasshop') ||
-        nombreNormalizado.includes('reff')
+        nombreNormalizado.includes('rafasshop')
       ) {
         return false
       }
