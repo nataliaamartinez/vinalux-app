@@ -371,23 +371,23 @@ export default function PresupuestosPage() {
     setError(null)
     setConvertingId(presupuesto.id)
 
-    const pedidosPayload = presupuesto.presupuesto_items.map((item) => ({
-      cliente_id: presupuesto.cliente_id,
-      producto_id: item.producto_id,
-      cantidad: item.cantidad ?? 1,
-      precio_venta: item.precio ?? 0,
-      coste: 0,
-      estado: 'pendiente',
-      prioridad: 'media',
-      fecha_entrega: null,
-      tipo_material: item.material_estampado,
-      tipo_producto: item.tipo_estampado,
-      notas: presupuesto.notas
-        ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nEstampación: ${item.tipo_estampacion}`
-        : `Creado desde presupuesto\n\nEstampación: ${item.tipo_estampacion}`,
-    }))
+  const pedidosPayload = presupuesto.presupuesto_items.map((item) => ({
+  cliente_id: presupuesto.cliente_id,
+  producto_id: item.producto_id,
+  cantidad: item.cantidad ?? 1,
+  precio_venta: item.precio ?? 0,
+  coste: 0,
+  estado: 'pendiente',
+  prioridad: 'media',
+  fecha_entrega: null,
+  tipo_material: item.material_estampado,
+  tipo_producto: item.tipo_estampado,
+  notas: presupuesto.notas
+    ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nEstampación: ${item.tipo_estampacion}`
+    : `Creado desde presupuesto\n\nEstampación: ${item.tipo_estampacion}`,
+}))
 
-    const pedidoRes = await supabase.from('pedidos').insert(pedidosPayload)
+const pedidoRes = await supabase.from('pedidos').insert(pedidosPayload)
 
     if (pedidoRes.error) {
       setError(pedidoRes.error.message)
