@@ -317,7 +317,7 @@ Gracias por confiar en ${negocio}.`
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Vinalux</p>
-            <h1 className="mt-2 text-4xl font-bold ">
+            <h1 className="mt-2 text-4xl font-bold text-slate-900">
               Presupuestos
             </h1>
             <p className="mt-3 text-slate-600">
