@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { generarPDF } from '@/lib/pdf'
 import { supabase } from '@/lib/supabase'
-import { color } from 'html2canvas/dist/types/css/types/color'
-
 
 type Cliente = {
   id: string
@@ -15,6 +13,7 @@ type Producto = {
   id: string
   nombre: string
   precio_venta: number | null
+  imagen_url: string | null
 }
 
 type Ajustes = {
@@ -23,35 +22,59 @@ type Ajustes = {
   email: string | null
 }
 
-type Presupuesto = {
+type PresupuestoItem = {
   id: string
-  cliente_id: string | null
+  presupuesto_id: string
   producto_id: string | null
   cantidad: number | null
   precio: number | null
+  material_estampado: 'dtf' | 'uv' | null
+  tipo_estampado: 'grande' | 'pequeño' | null
+  tipo_estampacion: 'simple' | 'doble' | null
+  imagen_url: string | null
+  productos: { nombre: string; imagen_url: string | null } | null
+}
+
+type Presupuesto = {
+  id: string
+  cliente_id: string | null
   estado: string | null
   notas: string | null
   created_at?: string | null
   clientes: { nombre: string } | null
-  productos: { nombre: string } | null
+  presupuesto_items: PresupuestoItem[]
 }
 
 type FormDataType = {
   cliente_id: string
-  producto_id: string
-  cantidad: string
-  precio: string
   estado: string
   notas: string
 }
 
+type ItemFormType = {
+  producto_id: string
+  cantidad: string
+  precio: string
+  material_estampado: 'dtf' | 'uv'
+  tipo_estampado: 'grande' | 'pequeño'
+  tipo_estampacion: 'simple' | 'doble'
+  imagen_url: string
+}
+
 const initialFormData: FormDataType = {
   cliente_id: '',
+  estado: 'borrador',
+  notas: '',
+}
+
+const initialItem: ItemFormType = {
   producto_id: '',
   cantidad: '1',
   precio: '',
-  estado: 'borrador',
-  notas: '',
+  material_estampado: 'dtf',
+  tipo_estampado: 'pequeño',
+  tipo_estampacion: 'simple',
+  imagen_url: '',
 }
 
 export default function PresupuestosPage() {
@@ -70,6 +93,7 @@ export default function PresupuestosPage() {
   const [convertingId, setConvertingId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
+  const [items, setItems] = useState<ItemFormType[]>([initialItem])
 
   async function cargarDatos() {
     setLoading(true)
@@ -84,7 +108,10 @@ export default function PresupuestosPage() {
               `
               *,
               clientes(nombre),
-              productos(nombre)
+              presupuesto_items(
+                *,
+                productos(nombre, imagen_url)
+              )
             `
             )
             .order('created_at', { ascending: false }),
@@ -93,7 +120,7 @@ export default function PresupuestosPage() {
 
           supabase
             .from('productos')
-            .select('id, nombre, precio_venta')
+            .select('id, nombre, precio_venta, imagen_url')
             .order('nombre'),
 
           supabase.from('ajustes').select('*').limit(1),
@@ -145,38 +172,76 @@ export default function PresupuestosPage() {
       ...prev,
       [name]: value,
     }))
+  }
 
-    if (name === 'producto_id') {
-      const producto = productos.find((p) => p.id === value)
-      if (producto) {
-        setFormData((prev) => ({
-          ...prev,
-          producto_id: value,
-          precio:
-            producto.precio_venta !== null ? String(producto.precio_venta) : '',
-        }))
+  function cambiarItem(index: number, campo: keyof ItemFormType, valor: string) {
+    setItems((prev) => {
+      const nuevos = [...prev]
+
+      nuevos[index] = {
+        ...nuevos[index],
+        [campo]: valor,
       }
-    }
+
+      if (campo === 'producto_id') {
+        const producto = productos.find((p) => p.id === valor)
+
+        nuevos[index].precio =
+          producto?.precio_venta !== null && producto?.precio_venta !== undefined
+            ? String(producto.precio_venta)
+            : ''
+
+        nuevos[index].imagen_url = producto?.imagen_url || ''
+      }
+
+      return nuevos
+    })
+  }
+
+  function añadirProducto() {
+    setItems((prev) => [...prev, { ...initialItem }])
+  }
+
+  function borrarItem(index: number) {
+    setItems((prev) => {
+      if (prev.length === 1) return prev
+      return prev.filter((_, i) => i !== index)
+    })
   }
 
   function abrirNuevoPresupuesto() {
     setEditingId(null)
     setFormData(initialFormData)
+    setItems([{ ...initialItem }])
     setShowForm(true)
     setError(null)
   }
 
   function abrirEdicion(presupuesto: Presupuesto) {
     setEditingId(presupuesto.id)
+
     setFormData({
       cliente_id: presupuesto.cliente_id || '',
-      producto_id: presupuesto.producto_id || '',
-      cantidad:
-        presupuesto.cantidad !== null ? String(presupuesto.cantidad) : '1',
-      precio: presupuesto.precio !== null ? String(presupuesto.precio) : '',
       estado: presupuesto.estado || 'borrador',
       notas: presupuesto.notas || '',
     })
+
+    if (presupuesto.presupuesto_items?.length > 0) {
+      setItems(
+        presupuesto.presupuesto_items.map((item) => ({
+          producto_id: item.producto_id || '',
+          cantidad: item.cantidad !== null ? String(item.cantidad) : '1',
+          precio: item.precio !== null ? String(item.precio) : '',
+          material_estampado: item.material_estampado || 'dtf',
+          tipo_estampado: item.tipo_estampado || 'pequeño',
+          tipo_estampacion: item.tipo_estampacion || 'simple',
+          imagen_url: item.imagen_url || item.productos?.imagen_url || '',
+        }))
+      )
+    } else {
+      setItems([{ ...initialItem }])
+    }
+
     setShowForm(true)
     setError(null)
   }
@@ -185,6 +250,17 @@ export default function PresupuestosPage() {
     setShowForm(false)
     setEditingId(null)
     setFormData(initialFormData)
+    setItems([{ ...initialItem }])
+  }
+
+  const totalCalculado = items.reduce((total, item) => {
+    return total + (Number(item.cantidad) || 0) * (Number(item.precio) || 0)
+  }, 0)
+
+  function totalPresupuesto(presupuesto: Presupuesto) {
+    return presupuesto.presupuesto_items.reduce((total, item) => {
+      return total + (item.cantidad ?? 0) * (item.precio ?? 0)
+    }, 0)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -192,28 +268,75 @@ export default function PresupuestosPage() {
     setSaving(true)
     setError(null)
 
-    const payload = {
+    const itemsValidos = items.filter((item) => item.producto_id)
+
+    if (itemsValidos.length === 0) {
+      setError('Añade al menos un producto al presupuesto.')
+      setSaving(false)
+      return
+    }
+
+    const presupuestoPayload = {
       cliente_id: formData.cliente_id || null,
-      producto_id: formData.producto_id || null,
-      cantidad: formData.cantidad ? Number(formData.cantidad) : 1,
-      precio: formData.precio ? Number(formData.precio) : 0,
       estado: formData.estado || 'borrador',
       notas: formData.notas || null,
     }
 
-    let result
+    let presupuestoId = editingId
 
     if (editingId) {
-      result = await supabase
+      const updateRes = await supabase
         .from('presupuestos')
-        .update(payload)
+        .update(presupuestoPayload)
         .eq('id', editingId)
+
+      if (updateRes.error) {
+        setError(updateRes.error.message)
+        setSaving(false)
+        return
+      }
+
+      const deleteItemsRes = await supabase
+        .from('presupuesto_items')
+        .delete()
+        .eq('presupuesto_id', editingId)
+
+      if (deleteItemsRes.error) {
+        setError(deleteItemsRes.error.message)
+        setSaving(false)
+        return
+      }
     } else {
-      result = await supabase.from('presupuestos').insert([payload])
+      const insertRes = await supabase
+        .from('presupuestos')
+        .insert([presupuestoPayload])
+        .select('id')
+        .single()
+
+      if (insertRes.error) {
+        setError(insertRes.error.message)
+        setSaving(false)
+        return
+      }
+
+      presupuestoId = insertRes.data.id
     }
 
-    if (result.error) {
-      setError(result.error.message)
+    const itemsPayload = itemsValidos.map((item) => ({
+      presupuesto_id: presupuestoId,
+      producto_id: item.producto_id,
+      cantidad: Number(item.cantidad) || 1,
+      precio: Number(item.precio) || 0,
+      material_estampado: item.material_estampado,
+      tipo_estampado: item.tipo_estampado,
+      tipo_estampacion: item.tipo_estampacion,
+      imagen_url: item.imagen_url || null,
+    }))
+
+    const itemsRes = await supabase.from('presupuesto_items').insert(itemsPayload)
+
+    if (itemsRes.error) {
+      setError(itemsRes.error.message)
       setSaving(false)
       return
     }
@@ -241,28 +364,30 @@ export default function PresupuestosPage() {
 
   async function convertirEnPedido(presupuesto: Presupuesto) {
     const confirmado = window.confirm(
-      '¿Quieres convertir este presupuesto en un pedido?'
+      '¿Quieres convertir este presupuesto en pedido? Se creará un pedido por cada producto.'
     )
     if (!confirmado) return
 
     setError(null)
     setConvertingId(presupuesto.id)
 
-    const pedidoPayload = {
+    const pedidosPayload = presupuesto.presupuesto_items.map((item) => ({
       cliente_id: presupuesto.cliente_id,
-      producto_id: presupuesto.producto_id,
-      cantidad: presupuesto.cantidad ?? 1,
-      precio_venta: presupuesto.precio ?? 0,
+      producto_id: item.producto_id,
+      cantidad: item.cantidad ?? 1,
+      precio_venta: item.precio ?? 0,
       coste: 0,
       estado: 'pendiente',
       prioridad: 'media',
       fecha_entrega: null,
+      tipo_material: item.material_estampado,
+      tipo_producto: item.tipo_estampado,
       notas: presupuesto.notas
-        ? `Creado desde presupuesto:\n${presupuesto.notas}`
-        : 'Creado desde presupuesto',
-    }
+        ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nEstampación: ${item.tipo_estampacion}`
+        : `Creado desde presupuesto\n\nEstampación: ${item.tipo_estampacion}`,
+    }))
 
-    const pedidoRes = await supabase.from('pedidos').insert([pedidoPayload])
+    const pedidoRes = await supabase.from('pedidos').insert(pedidosPayload)
 
     if (pedidoRes.error) {
       setError(pedidoRes.error.message)
@@ -288,13 +413,28 @@ export default function PresupuestosPage() {
 
   function enviarWhatsApp(presupuesto: Presupuesto) {
     const cliente = presupuesto.clientes?.nombre || 'Cliente'
-    const producto = presupuesto.productos?.nombre || 'Producto'
-    const total = (presupuesto.cantidad ?? 0) * (presupuesto.precio ?? 0)
     const negocio = ajustes?.nombre_negocio || 'Vinalux'
+    const total = totalPresupuesto(presupuesto)
+
+    const productosTexto = presupuesto.presupuesto_items
+      .map((item) => {
+        const nombre = item.productos?.nombre || 'Producto'
+        const subtotal = (item.cantidad ?? 0) * (item.precio ?? 0)
+
+        return `- ${nombre}
+Cantidad: ${item.cantidad ?? 0}
+Precio unitario: ${item.precio ?? 0} €
+Material: ${item.material_estampado || '-'}
+Tamaño: ${item.tipo_estampado || '-'}
+Estampación: ${item.tipo_estampacion || '-'}
+Subtotal: ${subtotal.toFixed(2)} €`
+      })
+      .join('\n\n')
 
     const mensaje = `Hola ${cliente}, te envío el presupuesto:
 
-Producto: ${producto}
+${productosTexto}
+
 Total: ${total.toFixed(2)} €
 
 Gracias por confiar en ${negocio}.`
@@ -309,9 +449,6 @@ Gracias por confiar en ${negocio}.`
     if (estado === 'rechazado') return 'bg-red-100 text-red-700'
     return 'bg-yellow-100 text-yellow-700'
   }
-
-  const totalCalculado =
-    (Number(formData.cantidad) || 0) * (Number(formData.precio) || 0)
 
   return (
     <main className="min-h-screen">
@@ -329,7 +466,7 @@ Gracias por confiar en ${negocio}.`
 
           <button
             onClick={abrirNuevoPresupuesto}
-            className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            className="rounded-2xl bg-red px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
           >
             + Nuevo presupuesto
           </button>
@@ -378,53 +515,6 @@ Gracias por confiar en ${negocio}.`
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Producto
-                </label>
-                <select
-                  name="producto_id"
-                  value={formData.producto_id}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
-                  required
-                >
-                  <option value="">Selecciona un producto</option>
-                  {productos.map((producto) => (
-                    <option key={producto.id} value={producto.id}>
-                      {producto.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Cantidad
-                </label>
-                <input
-                  name="cantidad"
-                  type="number"
-                  value={formData.cantidad}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Precio unitario
-                </label>
-                <input
-                  name="precio"
-                  type="number"
-                  step="0.01"
-                  value={formData.precio}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
                   Estado
                 </label>
                 <select
@@ -440,7 +530,164 @@ Gracias por confiar en ${negocio}.`
                 </select>
               </div>
 
-              <div className="rounded-2xl bg-slate-100 p-4">
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Productos del presupuesto
+                  </h3>
+
+                  <button
+                    type="button"
+                    onClick={añadirProducto}
+                    className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  >
+                    + Añadir producto
+                  </button>
+                </div>
+
+                {items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-3"
+                  >
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Producto
+                      </label>
+                      <select
+                        value={item.producto_id}
+                        onChange={(e) =>
+                          cambiarItem(index, 'producto_id', e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                        required
+                      >
+                        <option value="">Selecciona un producto</option>
+                        {productos.map((producto) => (
+                          <option key={producto.id} value={producto.id}>
+                            {producto.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Cantidad
+                      </label>
+                      <input
+                        type="number"
+                        value={item.cantidad}
+                        onChange={(e) =>
+                          cambiarItem(index, 'cantidad', e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Precio venta
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.precio}
+                        onChange={(e) =>
+                          cambiarItem(index, 'precio', e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Material estampado
+                      </label>
+                      <select
+                        value={item.material_estampado}
+                        onChange={(e) =>
+                          cambiarItem(
+                            index,
+                            'material_estampado',
+                            e.target.value
+                          )
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                      >
+                        <option value="dtf">DTF</option>
+                        <option value="uv">UV</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Tipo de estampado
+                      </label>
+                      <select
+                        value={item.tipo_estampado}
+                        onChange={(e) =>
+                          cambiarItem(index, 'tipo_estampado', e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                      >
+                        <option value="pequeño">Pequeño</option>
+                        <option value="grande">Grande</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Tipo de estampación
+                      </label>
+                      <select
+                        value={item.tipo_estampacion}
+                        onChange={(e) =>
+                          cambiarItem(index, 'tipo_estampacion', e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none focus:border-slate-500"
+                      >
+                        <option value="simple">Simple</option>
+                        <option value="doble">Doble</option>
+                      </select>
+                    </div>
+
+                    {item.imagen_url && (
+                      <div className="md:col-span-2">
+                        <p className="mb-2 text-sm font-medium text-slate-700">
+                          Foto del producto
+                        </p>
+                        <img
+                          src={item.imagen_url}
+                          alt="Foto del producto"
+                          className="h-24 w-24 rounded-xl object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-end justify-between gap-3 md:col-span-3">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Subtotal:{' '}
+                        {(
+                          (Number(item.cantidad) || 0) *
+                          (Number(item.precio) || 0)
+                        ).toFixed(2)}{' '}
+                        €
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => borrarItem(index)}
+                        className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200"
+                      >
+                        Quitar producto
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl bg-slate-100 p-4 md:col-span-2">
                 <p className="text-sm text-slate-500">Total calculado</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">
                   {totalCalculado.toFixed(2)} €
@@ -500,32 +747,11 @@ Gracias por confiar en ${negocio}.`
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="mb-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Cliente</p>
                 <p className="mt-1 font-semibold text-slate-900">
                   {selectedPresupuesto.clientes?.nombre || '-'}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm text-slate-500">Producto</p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {selectedPresupuesto.productos?.nombre || '-'}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm text-slate-500">Cantidad</p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {selectedPresupuesto.cantidad ?? 0}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm text-slate-500">Precio unitario</p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {selectedPresupuesto.precio ?? 0} €
                 </p>
               </div>
 
@@ -539,24 +765,86 @@ Gracias por confiar en ${negocio}.`
                   {selectedPresupuesto.estado || '-'}
                 </span>
               </div>
+            </div>
 
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm text-slate-500">Total</p>
-                <p className="mt-1 text-xl font-bold text-slate-900">
-                  {(
-                    (selectedPresupuesto.cantidad ?? 0) *
-                    (selectedPresupuesto.precio ?? 0)
-                  ).toFixed(2)}{' '}
-                  €
-                </p>
-              </div>
+            <div className="space-y-4">
+              {selectedPresupuesto.presupuesto_items.map((item) => (
+                <div
+                  key={item.id}
+                  className="grid gap-4 rounded-2xl bg-slate-50 p-4 md:grid-cols-4"
+                >
+                  {item.imagen_url && (
+                    <img
+                      src={item.imagen_url}
+                      alt="Producto"
+                      className="h-24 w-24 rounded-xl object-cover"
+                    />
+                  )}
 
-              <div className="rounded-2xl bg-slate-50 p-4 md:col-span-2">
-                <p className="text-sm text-slate-500">Observaciones</p>
-                <p className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                  {selectedPresupuesto.notas || 'Sin observaciones'}
-                </p>
-              </div>
+                  <div>
+                    <p className="text-sm text-slate-500">Producto</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.productos?.nombre || '-'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Cantidad</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.cantidad ?? 0}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Precio</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.precio ?? 0} €
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Material</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.material_estampado || '-'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Tamaño</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.tipo_estampado || '-'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Estampación</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.tipo_estampacion || '-'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Subtotal</p>
+                    <p className="font-bold text-slate-900">
+                      {((item.cantidad ?? 0) * (item.precio ?? 0)).toFixed(2)} €
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-100 p-4">
+              <p className="text-sm text-slate-500">Total</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {totalPresupuesto(selectedPresupuesto).toFixed(2)} €
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Observaciones</p>
+              <p className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                {selectedPresupuesto.notas || 'Sin observaciones'}
+              </p>
             </div>
           </div>
         )}
@@ -585,9 +873,7 @@ Gracias por confiar en ${negocio}.`
                 <thead className="bg-slate-100 text-sm text-slate-600">
                   <tr>
                     <th className="px-6 py-4 font-semibold">Cliente</th>
-                    <th className="px-6 py-4 font-semibold">Producto</th>
-                    <th className="px-6 py-4 font-semibold">Cantidad</th>
-                    <th className="px-6 py-4 font-semibold">Precio</th>
+                    <th className="px-6 py-4 font-semibold">Productos</th>
                     <th className="px-6 py-4 font-semibold">Estado</th>
                     <th className="px-6 py-4 font-semibold">Total</th>
                     <th className="px-6 py-4 font-semibold">Acciones</th>
@@ -599,11 +885,15 @@ Gracias por confiar en ${negocio}.`
                       <td className="px-6 py-4 font-medium text-slate-900">
                         {presupuesto.clientes?.nombre || '-'}
                       </td>
+
                       <td className="px-6 py-4">
-                        {presupuesto.productos?.nombre || '-'}
+                        {presupuesto.presupuesto_items.length > 0
+                          ? presupuesto.presupuesto_items
+                              .map((item) => item.productos?.nombre || 'Producto')
+                              .join(', ')
+                          : '-'}
                       </td>
-                      <td className="px-6 py-4">{presupuesto.cantidad ?? 0}</td>
-                      <td className="px-6 py-4">{presupuesto.precio ?? 0} €</td>
+
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${colorEstado(
@@ -613,13 +903,11 @@ Gracias por confiar en ${negocio}.`
                           {presupuesto.estado || '-'}
                         </span>
                       </td>
+
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        {(
-                          (presupuesto.cantidad ?? 0) *
-                          (presupuesto.precio ?? 0)
-                        ).toFixed(2)}{' '}
-                        €
+                        {totalPresupuesto(presupuesto).toFixed(2)} €
                       </td>
+
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -628,6 +916,7 @@ Gracias por confiar en ${negocio}.`
                           >
                             Ver
                           </button>
+
                           <button
                             onClick={async () =>
                               await generarPDF({
@@ -637,10 +926,13 @@ Gracias por confiar en ${negocio}.`
                                 cliente:
                                   presupuesto.clientes?.nombre || 'Cliente',
                                 producto:
-                                  presupuesto.productos?.nombre || 'Producto',
-                                precio:
-                                  (presupuesto.cantidad ?? 0) *
-                                  (presupuesto.precio ?? 0),
+                                  presupuesto.presupuesto_items
+                                    .map(
+                                      (item) =>
+                                        item.productos?.nombre || 'Producto'
+                                    )
+                                    .join(', ') || 'Producto',
+                                precio: totalPresupuesto(presupuesto),
                                 fecha: new Date().toLocaleDateString(),
                               })
                             }
@@ -648,18 +940,21 @@ Gracias por confiar en ${negocio}.`
                           >
                             PDF
                           </button>
+
                           <button
                             onClick={() => enviarWhatsApp(presupuesto)}
                             className="rounded-xl bg-green-100 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-200"
                           >
                             WhatsApp
                           </button>
+
                           <button
                             onClick={() => abrirEdicion(presupuesto)}
                             className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-200"
                           >
                             Editar
                           </button>
+
                           <button
                             onClick={() => convertirEnPedido(presupuesto)}
                             disabled={convertingId === presupuesto.id}
@@ -669,6 +964,7 @@ Gracias por confiar en ${negocio}.`
                               ? 'Convirtiendo...'
                               : 'Convertir'}
                           </button>
+
                           <button
                             onClick={() => borrarPresupuesto(presupuesto.id)}
                             className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200"
