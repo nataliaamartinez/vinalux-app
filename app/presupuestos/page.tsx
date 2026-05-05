@@ -371,23 +371,44 @@ export default function PresupuestosPage() {
     setError(null)
     setConvertingId(presupuesto.id)
 
-  const pedidosPayload = presupuesto.presupuesto_items.map((item) => ({
+const primerItem = presupuesto.presupuesto_items[0]
+
+const total = presupuesto.presupuesto_items.reduce((acc, item) => {
+  return acc + (item.cantidad ?? 0) * (item.precio ?? 0)
+}, 0)
+
+const resumenProductos = presupuesto.presupuesto_items
+  .map((item, index) => {
+    const nombre = item.productos?.nombre || 'Producto'
+    const subtotal = (item.cantidad ?? 0) * (item.precio ?? 0)
+
+    return `${index + 1}. ${nombre}
+Cantidad: ${item.cantidad ?? 0}
+Precio unitario: ${item.precio ?? 0} €
+Material: ${item.material_estampado || '-'}
+Tamaño: ${item.tipo_estampado || '-'}
+Estampación: ${item.tipo_estampacion || '-'}
+Subtotal: ${subtotal.toFixed(2)} €`
+  })
+  .join('\n\n')
+
+const pedidoPayload = {
   cliente_id: presupuesto.cliente_id,
-  producto_id: item.producto_id,
-  cantidad: item.cantidad ?? 1,
-  precio_venta: item.precio ?? 0,
+  producto_id: primerItem?.producto_id || null,
+  cantidad: 1,
+  precio_venta: total,
   coste: 0,
   estado: 'pendiente',
   prioridad: 'media',
   fecha_entrega: null,
-  tipo_material: item.material_estampado,
-  tipo_producto: item.tipo_estampado,
+  tipo_material: primerItem?.material_estampado || null,
+  tipo_producto: 'varios',
   notas: presupuesto.notas
-    ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nEstampación: ${item.tipo_estampacion}`
-    : `Creado desde presupuesto\n\nEstampación: ${item.tipo_estampacion}`,
-}))
+    ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nProductos:\n${resumenProductos}`
+    : `Creado desde presupuesto\n\nProductos:\n${resumenProductos}`,
+}
 
-const pedidoRes = await supabase.from('pedidos').insert(pedidosPayload)
+const pedidoRes = await supabase.from('pedidos').insert([pedidoPayload])
 
     if (pedidoRes.error) {
       setError(pedidoRes.error.message)
