@@ -362,75 +362,81 @@ export default function PresupuestosPage() {
     await cargarDatos()
   }
 
-  async function convertirEnPedido(presupuesto: Presupuesto) {
-    const confirmado = window.confirm(
-      '¿Quieres convertir este presupuesto en pedido? Se creará un pedido por cada producto.'
-    )
-    if (!confirmado) return
+async function convertirEnPedido(presupuesto: Presupuesto) {
+  const confirmado = window.confirm(
+    '¿Quieres convertir este presupuesto en un pedido?'
+  )
+  if (!confirmado) return
 
-    setError(null)
-    setConvertingId(presupuesto.id)
+  setError(null)
+  setConvertingId(presupuesto.id)
 
-const primerItem = presupuesto.presupuesto_items[0]
+  if (!presupuesto.presupuesto_items || presupuesto.presupuesto_items.length === 0) {
+    setError('Este presupuesto no tiene productos.')
+    setConvertingId(null)
+    return
+  }
 
-const total = presupuesto.presupuesto_items.reduce((acc, item) => {
-  return acc + (item.cantidad ?? 0) * (item.precio ?? 0)
-}, 0)
+  const primerItem = presupuesto.presupuesto_items[0]
 
-const resumenProductos = presupuesto.presupuesto_items
-  .map((item, index) => {
-    const nombre = item.productos?.nombre || 'Producto'
-    const subtotal = (item.cantidad ?? 0) * (item.precio ?? 0)
+  const total = presupuesto.presupuesto_items.reduce((acc, item) => {
+    return acc + (item.cantidad ?? 0) * (item.precio ?? 0)
+  }, 0)
 
-    return `${index + 1}. ${nombre}
+  const resumenProductos = presupuesto.presupuesto_items
+    .map((item, index) => {
+      const nombre = item.productos?.nombre || 'Producto'
+      const subtotal = (item.cantidad ?? 0) * (item.precio ?? 0)
+
+      return `${index + 1}. ${nombre}
 Cantidad: ${item.cantidad ?? 0}
 Precio unitario: ${item.precio ?? 0} €
 Material: ${item.material_estampado || '-'}
 Tamaño: ${item.tipo_estampado || '-'}
 Estampación: ${item.tipo_estampacion || '-'}
 Subtotal: ${subtotal.toFixed(2)} €`
-  })
-  .join('\n\n')
+    })
+    .join('\n\n')
 
-const pedidoPayload = {
-  cliente_id: presupuesto.cliente_id,
-  producto_id: primerItem?.producto_id || null,
-  cantidad: 1,
-  precio_venta: total,
-  coste: 0,
-  estado: 'pendiente',
-  prioridad: 'media',
-  fecha_entrega: null,
-  tipo_material: primerItem?.material_estampado || null,
-  tipo_producto: 'varios',
-  notas: presupuesto.notas
-    ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nProductos:\n${resumenProductos}`
-    : `Creado desde presupuesto\n\nProductos:\n${resumenProductos}`,
-}
-
-const pedidoRes = await supabase.from('pedidos').insert([pedidoPayload])
-
-    if (pedidoRes.error) {
-      setError(pedidoRes.error.message)
-      setConvertingId(null)
-      return
-    }
-
-    const updateRes = await supabase
-      .from('presupuestos')
-      .update({ estado: 'aceptado' })
-      .eq('id', presupuesto.id)
-
-    if (updateRes.error) {
-      setError(updateRes.error.message)
-      setConvertingId(null)
-      return
-    }
-
-    setConvertingId(null)
-    await cargarDatos()
-    alert('Presupuesto convertido en pedido correctamente.')
+  const pedidoPayload = {
+    cliente_id: presupuesto.cliente_id,
+    producto_id: primerItem.producto_id || null,
+    cantidad: 1,
+    precio_venta: total,
+    coste: 0,
+    estado: 'pendiente',
+    prioridad: 'media',
+    fecha_entrega: null,
+    tipo_material: primerItem.material_estampado || null,
+    tipo_producto: 'varios',
+    notas: presupuesto.notas
+      ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nProductos:\n${resumenProductos}`
+      : `Creado desde presupuesto\n\nProductos:\n${resumenProductos}`,
   }
+
+  const pedidoRes = await supabase.from('pedidos').insert([pedidoPayload])
+
+  if (pedidoRes.error) {
+    setError(pedidoRes.error.message)
+    setConvertingId(null)
+    return
+  }
+
+  const updateRes = await supabase
+    .from('presupuestos')
+    .update({ estado: 'aceptado' })
+    .eq('id', presupuesto.id)
+
+  if (updateRes.error) {
+    setError(updateRes.error.message)
+    setConvertingId(null)
+    return
+  }
+
+  setConvertingId(null)
+  await cargarDatos()
+  alert('Presupuesto convertido en pedido correctamente.')
+}
 
   function enviarWhatsApp(presupuesto: Presupuesto) {
     const cliente = presupuesto.clientes?.nombre || 'Cliente'
