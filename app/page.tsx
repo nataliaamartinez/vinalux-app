@@ -106,8 +106,7 @@ export default function DashboardPage() {
     if (pedidosRes.error) {
       setError(pedidosRes.error.message)
     } else {
-      setPedidos((pedidosRes.data as Pedido[]) || [])
-    }
+setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
 
     if (finanzasRes.error) {
       setError(finanzasRes.error.message)
