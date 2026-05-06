@@ -464,28 +464,42 @@ Gracias por confiar en ${negocio}.`
   }
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-  <select
-    value={filtroEstado}
-    onChange={(e) => setFiltroEstado(e.target.value)}
-    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-500"
-  >
-    <option value="todos">Todos</option>
-    <option value="borrador">Borrador</option>
-    <option value="enviado">Enviado</option>
-    <option value="aceptado">Aceptado</option>
-    <option value="rechazado">Rechazado</option>
-  </select>
+   <main className="min-h-screen">
+  <div className="mx-auto max-w-7xl px-4 py-10">
+    <div className="mb-10">
+      <div className="mb-8">
+        <p className="text-sm font-medium text-slate-400">Vinalux</p>
 
-  <button
-  onClick={abrirNuevoPresupuesto}
-  className="rounded-2xl bg-red px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
->
-  + Nuevo presupuesto
-</button>
-</div>
+        <h1 className="mt-2 text-4xl font-bold text-white">
+          Presupuestos
+        </h1>
+
+        <p className="mt-3 text-slate-400">
+          Crea y gestiona presupuestos para tus clientes.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+          className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-500 md:w-40"
+        >
+          <option value="todos">Todos</option>
+          <option value="borrador">Borrador</option>
+          <option value="enviado">Enviado</option>
+          <option value="aceptado">Aceptado</option>
+          <option value="rechazado">Rechazado</option>
+        </select>
+
+        <button
+          onClick={abrirNuevoPresupuesto}
+          className="rounded-2xl bg-red px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+        >
+          + Nuevo presupuesto
+        </button>
+      </div>
+    </div>
 
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
