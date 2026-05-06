@@ -37,37 +37,42 @@ export default function VentaPublicoPage() {
     setProductos(data || [])
   }
 
-  async function sacarPdfVenta() {
-    if (!contenidoRef.current) return
+  async function generarPDF(nombreArchivo: string, catalogo: boolean) {
+    setModoCatalogo(catalogo)
 
-    const canvas = await html2canvas(contenidoRef.current, {
-      scale: 2,
-      useCORS: true,
-    })
+    setTimeout(async () => {
+      if (!contenidoRef.current) return
 
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF('p', 'mm', 'a4')
+      const canvas = await html2canvas(contenidoRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#f9fafb',
+      })
 
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
 
-    const imgWidth = pageWidth
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
 
-    let heightLeft = imgHeight
-    let position = 0
+      const imgWidth = pageWidth
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
+      let heightLeft = imgHeight
+      let position = 0
 
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight
-      pdf.addPage()
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
-    }
 
-    pdf.save(modoCatalogo ? 'catalogo-productos.pdf' : 'venta-publico.pdf')
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      pdf.save(nombreArchivo)
+    }, 300)
   }
 
   return (
@@ -84,33 +89,49 @@ export default function VentaPublicoPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={sacarPdfVenta}
+            onClick={() => generarPDF('venta-publico.pdf', false)}
             className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
           >
-            Sacar PDF de {modoCatalogo ? 'catálogo' : 'venta'}
+            Sacar PDF de venta
           </button>
 
           <button
-            onClick={() => setModoCatalogo((actual) => !actual)}
+            onClick={() => generarPDF('catalogo-productos.pdf', true)}
             className="rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700"
           >
-            {modoCatalogo ? 'Ver venta' : 'Hacer catálogo'}
+            Hacer catálogo
           </button>
         </div>
       </div>
 
       <div ref={contenidoRef}>
         {modoCatalogo ? (
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {productos.map((producto) => (
-              <div
+              <article
                 key={producto.id}
-                className="rounded-2xl bg-white p-5 text-center shadow-sm"
+                className="overflow-hidden rounded-2xl bg-white shadow-sm"
               >
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {producto.nombre}
-                </h2>
-              </div>
+                <div className="h-56 bg-gray-100">
+                  {producto.imagen_url ? (
+                    <img
+                      src={producto.imagen_url}
+                      alt={producto.nombre || 'Producto'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      Sin imagen
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-5 text-center">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {producto.nombre}
+                  </h2>
+                </div>
+              </article>
             ))}
           </section>
         ) : (
@@ -144,8 +165,7 @@ export default function VentaPublicoPage() {
                   </p>
 
                   <p className="text-sm text-gray-500">
-                    Tipo de grabado:{' '}
-                    {producto.tipo_grabado || 'No indicado'}
+                    Tipo de grabado: {producto.tipo_grabado || 'No indicado'}
                   </p>
 
                   <p className="text-2xl font-bold text-pink-600">
