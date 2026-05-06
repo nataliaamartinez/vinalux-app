@@ -215,6 +215,20 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+
+<div className="mb-6 rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-sm">
+  <h2 className="text-lg font-semibold">Tarifas de estampación</h2>
+
+  <div className="mt-3 flex flex-col gap-2 text-sm">
+    <p>
+      🟢 Estampación grande: <span className="font-bold">8,50€</span>
+    </p>
+    <p>
+      🔵 Estampación chica: <span className="font-bold">6,50€</span>
+    </p>
+  </div>
+</div>
+
       <div>
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
