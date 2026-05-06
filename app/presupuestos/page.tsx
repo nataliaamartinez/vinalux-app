@@ -364,7 +364,7 @@ export default function PresupuestosPage() {
 
 async function convertirEnPedido(presupuesto: Presupuesto) {
   const confirmado = window.confirm(
-    '¿Quieres convertir este presupuesto en un pedido?'
+    '¿Quieres convertir este presupuesto en pedidos? Se creará un pedido por cada producto.'
   )
   if (!confirmado) return
 
@@ -377,44 +377,27 @@ async function convertirEnPedido(presupuesto: Presupuesto) {
     return
   }
 
-  const primerItem = presupuesto.presupuesto_items[0]
+  const colorGrupo = `grupo-${presupuesto.id.slice(0, 8)}`
 
-  const total = presupuesto.presupuesto_items.reduce((acc, item) => {
-    return acc + (item.cantidad ?? 0) * (item.precio ?? 0)
-  }, 0)
-
-  const resumenProductos = presupuesto.presupuesto_items
-    .map((item, index) => {
-      const nombre = item.productos?.nombre || 'Producto'
-      const subtotal = (item.cantidad ?? 0) * (item.precio ?? 0)
-
-      return `${index + 1}. ${nombre}
-Cantidad: ${item.cantidad ?? 0}
-Precio unitario: ${item.precio ?? 0} €
-Material: ${item.material_estampado || '-'}
-Tamaño: ${item.tipo_estampado || '-'}
-Estampación: ${item.tipo_estampacion || '-'}
-Subtotal: ${subtotal.toFixed(2)} €`
-    })
-    .join('\n\n')
-
-  const pedidoPayload = {
+  const pedidosPayload = presupuesto.presupuesto_items.map((item) => ({
     cliente_id: presupuesto.cliente_id,
-    producto_id: primerItem.producto_id || null,
-    cantidad: 1,
-    precio_venta: total,
+    producto_id: item.producto_id,
+    cantidad: item.cantidad ?? 1,
+    precio_venta: item.precio ?? 0,
     coste: 0,
     estado: 'pendiente',
     prioridad: 'media',
     fecha_entrega: null,
-    tipo_material: primerItem.material_estampado || null,
-    tipo_producto: 'varios',
+    presupuesto_id: presupuesto.id,
+    color_grupo: colorGrupo,
+    tipo_material: item.material_estampado,
+    tipo_producto: item.tipo_estampado,
     notas: presupuesto.notas
-      ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nProductos:\n${resumenProductos}`
-      : `Creado desde presupuesto\n\nProductos:\n${resumenProductos}`,
-  }
+      ? `Creado desde presupuesto:\n${presupuesto.notas}\n\nEstampación: ${item.tipo_estampacion}`
+      : `Creado desde presupuesto\n\nEstampación: ${item.tipo_estampacion}`,
+  }))
 
-  const pedidoRes = await supabase.from('pedidos').insert([pedidoPayload])
+  const pedidoRes = await supabase.from('pedidos').insert(pedidosPayload)
 
   if (pedidoRes.error) {
     setError(pedidoRes.error.message)
@@ -435,7 +418,7 @@ Subtotal: ${subtotal.toFixed(2)} €`
 
   setConvertingId(null)
   await cargarDatos()
-  alert('Presupuesto convertido en pedido correctamente.')
+  alert('Presupuesto convertido en pedidos correctamente.')
 }
 
   function enviarWhatsApp(presupuesto: Presupuesto) {
