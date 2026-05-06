@@ -930,21 +930,22 @@ Gracias por confiar en ${negocio}.`
                           <button
                             onClick={async () =>
                               await generarPDF({
-                                negocio: ajustes?.nombre_negocio || 'Vinalux',
-                                telefono: ajustes?.telefono || '',
-                                email: ajustes?.email || '',
-                                cliente:
-                                  presupuesto.clientes?.nombre || 'Cliente',
-                                producto:
-                                  presupuesto.presupuesto_items
-                                    .map(
-                                      (item) =>
-                                        item.productos?.nombre || 'Producto'
-                                    )
-                                    .join(', ') || 'Producto',
-                                precio: totalPresupuesto(presupuesto),
-                                fecha: new Date().toLocaleDateString(),
-                              })
+  negocio: ajustes?.nombre_negocio || 'Vinalux',
+  telefono: ajustes?.telefono || '',
+  email: ajustes?.email || '',
+  cliente: presupuesto.clientes?.nombre || 'Cliente',
+  fecha: new Date().toLocaleDateString(),
+  productos: presupuesto.presupuesto_items.map((item) => ({
+    nombre: item.productos?.nombre || 'Producto',
+    cantidad: item.cantidad ?? 0,
+    precio: item.precio ?? 0,
+    imagen_url: item.imagen_url || item.productos?.imagen_url || null,
+    material_estampado: item.material_estampado || '-',
+    tipo_estampado: item.tipo_estampado || '-',
+    tipo_estampacion: item.tipo_estampacion || '-',
+  })),
+  total: totalPresupuesto(presupuesto),
+})
                             }
                             className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
                           >
