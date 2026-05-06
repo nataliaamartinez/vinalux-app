@@ -22,6 +22,8 @@ type Pedido = {
   numero_pedido: string | null
   cliente_id: string | null
   producto_id: string | null
+  presupuesto_id: string | null
+  color_grupo: string | null
   cantidad: number | null
   precio_venta: number | null
   coste: number | null
@@ -108,7 +110,9 @@ export default function PedidosPageClient() {
         `
         )
         .order('created_at', { ascending: false }),
+
       supabase.from('clientes').select('id, nombre').order('nombre'),
+
       supabase
         .from('productos')
         .select('id, nombre, precio_compra, precio_venta, stock')
@@ -181,6 +185,7 @@ export default function PedidosPageClient() {
 
     if (name === 'producto_id') {
       const producto = productos.find((p) => p.id === value)
+
       if (producto) {
         setFormData((prev) => ({
           ...prev,
@@ -188,7 +193,9 @@ export default function PedidosPageClient() {
           precio_venta:
             producto.precio_venta !== null ? String(producto.precio_venta) : '',
           coste:
-            producto.precio_compra !== null ? String(producto.precio_compra) : '',
+            producto.precio_compra !== null
+              ? String(producto.precio_compra)
+              : '',
         }))
       }
     }
@@ -203,6 +210,7 @@ export default function PedidosPageClient() {
 
   function abrirEdicion(pedido: Pedido) {
     setEditingId(pedido.id)
+
     setFormData({
       numero_pedido: pedido.numero_pedido || '',
       cliente_id: pedido.cliente_id || '',
@@ -221,6 +229,7 @@ export default function PedidosPageClient() {
       talla: pedido.talla || '',
       color: pedido.color || '',
     })
+
     setShowForm(true)
     setError(null)
   }
@@ -239,10 +248,7 @@ export default function PedidosPageClient() {
       .select('id, nombre, stock')
 
     if (error) {
-      return {
-        data: null,
-        error,
-      }
+      return { data: null, error }
     }
 
     if (!data || data.length === 0) {
@@ -255,10 +261,7 @@ export default function PedidosPageClient() {
       }
     }
 
-    return {
-      data,
-      error: null,
-    }
+    return { data, error: null }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -567,7 +570,6 @@ export default function PedidosPageClient() {
     }
 
     const nuevoStock = (producto.stock ?? 0) + cantidad
-
     const stockRes = await actualizarStockProducto(producto.id, nuevoStock)
 
     if (stockRes.error) {
@@ -586,6 +588,29 @@ export default function PedidosPageClient() {
     if (prioridad === 'alta') return 'bg-orange-100 text-orange-700'
     if (prioridad === 'media') return 'bg-yellow-100 text-yellow-700'
     return 'bg-green-100 text-green-700'
+  }
+
+  function colorPedidoPorPresupuesto(presupuestoId: string | null) {
+    if (!presupuestoId) return ''
+
+    const colores = [
+      'bg-blue-50',
+      'bg-green-50',
+      'bg-purple-50',
+      'bg-orange-50',
+      'bg-pink-50',
+      'bg-cyan-50',
+      'bg-lime-50',
+      'bg-teal-50',
+    ]
+
+    let hash = 0
+
+    for (let i = 0; i < presupuestoId.length; i++) {
+      hash = presupuestoId.charCodeAt(i) + ((hash << 5) - hash)
+    }
+
+    return colores[Math.abs(hash) % colores.length]
   }
 
   function formatearEuros(valor: number) {
@@ -614,6 +639,7 @@ export default function PedidosPageClient() {
 
   const resumen = useMemo(() => {
     const totalPedidos = pedidos.length
+
     const pedidosPendientes = pedidos.filter(
       (pedido) => pedido.estado === 'pendiente'
     ).length
@@ -623,10 +649,9 @@ export default function PedidosPageClient() {
     }, 0)
 
     const beneficioEstimado = pedidos.reduce((acc, pedido) => {
-      return acc + calcularBeneficio(
-        pedido.cantidad,
-        pedido.precio_venta,
-        pedido.coste
+      return (
+        acc +
+        calcularBeneficio(pedido.cantidad, pedido.precio_venta, pedido.coste)
       )
     }, 0)
 
@@ -858,6 +883,7 @@ export default function PedidosPageClient() {
                   <option value="dtf">DTF</option>
                   <option value="dtf uv">DTF UV</option>
                   <option value="sublimacion">Sublimación</option>
+                  <option value="uv">UV</option>
                 </select>
               </div>
 
@@ -875,6 +901,8 @@ export default function PedidosPageClient() {
                   <option value="">Selecciona un tipo de producto</option>
                   <option value="material duro">Material duro</option>
                   <option value="textil">Textil</option>
+                  <option value="grande">Grande</option>
+                  <option value="pequeño">Pequeño</option>
                 </select>
               </div>
 
@@ -1032,7 +1060,9 @@ export default function PedidosPageClient() {
                 <p className="text-sm text-slate-500">Beneficio estimado</p>
                 <p
                   className={`mt-1 text-2xl font-bold ${
-                    beneficioFormulario >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    beneficioFormulario >= 0
+                      ? 'text-emerald-600'
+                      : 'text-red-600'
                   }`}
                 >
                   {formatearEuros(beneficioFormulario)}
@@ -1114,6 +1144,15 @@ export default function PedidosPageClient() {
                   {selectedPedido.numero_pedido || '-'}
                 </p>
               </div>
+
+              {selectedPedido.presupuesto_id && (
+                <div className="rounded-2xl bg-blue-50 p-4">
+                  <p className="text-sm text-blue-600">Presupuesto vinculado</p>
+                  <p className="mt-1 font-semibold text-blue-900">
+                    Sí, pertenece a un presupuesto
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Cliente</p>
@@ -1264,18 +1303,30 @@ export default function PedidosPageClient() {
                     <th className="px-6 py-4 font-semibold">Acciones</th>
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {pedidosFiltrados.map((pedido) => (
                     <tr
                       key={pedido.id}
                       id={`pedido-${pedido.id}`}
-                      className={`hover:bg-slate-50 ${
-                        highlightedId === pedido.id ? 'bg-yellow-100' : ''
-                      }`}
+                      className={`${
+                        highlightedId === pedido.id
+                          ? 'bg-yellow-100'
+                          : colorPedidoPorPresupuesto(pedido.presupuesto_id)
+                      } hover:bg-slate-100`}
                     >
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        {pedido.numero_pedido || '-'}
+                        <div className="flex flex-col gap-1">
+                          <span>{pedido.numero_pedido || '-'}</span>
+
+                          {pedido.presupuesto_id && (
+                            <span className="text-xs font-medium text-slate-500">
+                              Presupuesto vinculado
+                            </span>
+                          )}
+                        </div>
                       </td>
+
                       <td className="px-6 py-4 font-medium text-slate-900">
                         <div className="flex items-center gap-2">
                           {pedido.estado_pago === 'pagado' && (
@@ -1284,13 +1335,27 @@ export default function PedidosPageClient() {
                           <span>{pedido.clientes?.nombre || '-'}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">{pedido.productos?.nombre || '-'}</td>
-                      <td className="px-6 py-4">{pedido.tipo_material || '-'}</td>
-                      <td className="px-6 py-4">{pedido.tipo_producto || '-'}</td>
+
+                      <td className="px-6 py-4">
+                        {pedido.productos?.nombre || '-'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {pedido.tipo_material || '-'}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {pedido.tipo_producto || '-'}
+                      </td>
+
                       <td className="px-6 py-4">{pedido.talla || '-'}</td>
+
                       <td className="px-6 py-4">{pedido.color || '-'}</td>
+
                       <td className="px-6 py-4">{pedido.cantidad ?? 0}</td>
+
                       <td className="px-6 py-4">{pedido.estado || '-'}</td>
+
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -1302,6 +1367,7 @@ export default function PedidosPageClient() {
                           {pedido.estado_pago || 'pendiente'}
                         </span>
                       </td>
+
                       <td className="px-6 py-4">
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${colorPrioridad(
@@ -1311,12 +1377,17 @@ export default function PedidosPageClient() {
                           {pedido.prioridad || '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-4">{pedido.fecha_entrega || '-'}</td>
+
+                      <td className="px-6 py-4">
+                        {pedido.fecha_entrega || '-'}
+                      </td>
+
                       <td className="px-6 py-4 font-semibold text-slate-900">
                         {formatearEuros(
                           calcularTotal(pedido.cantidad, pedido.precio_venta)
                         )}
                       </td>
+
                       <td className="px-6 py-4 font-semibold text-emerald-600">
                         {formatearEuros(
                           calcularBeneficio(
@@ -1326,6 +1397,7 @@ export default function PedidosPageClient() {
                           )
                         )}
                       </td>
+
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           <button
@@ -1334,12 +1406,14 @@ export default function PedidosPageClient() {
                           >
                             Ver
                           </button>
+
                           <button
                             onClick={() => abrirEdicion(pedido)}
                             className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-200"
                           >
                             Editar
                           </button>
+
                           <button
                             onClick={() => borrarPedido(pedido.id)}
                             className="rounded-xl bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200"
