@@ -91,7 +91,7 @@ export default function PresupuestosPage() {
   const [selectedPresupuesto, setSelectedPresupuesto] =
     useState<Presupuesto | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
-
+const [filtroEstado, setFiltroEstado] = useState('todos')
   const [formData, setFormData] = useState<FormDataType>(initialFormData)
   const [items, setItems] = useState<ItemFormType[]>([initialItem])
 
@@ -262,7 +262,10 @@ export default function PresupuestosPage() {
       return total + (item.cantidad ?? 0) * (item.precio ?? 0)
     }, 0)
   }
-
+const presupuestosFiltrados = presupuestos.filter((presupuesto) => {
+  if (filtroEstado === 'todos') return true
+  return presupuesto.estado === filtroEstado
+})
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -463,24 +466,26 @@ Gracias por confiar en ${negocio}.`
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Vinalux</p>
-            <h1 className="mt-2 text-4xl font-bold text-white">
-              Presupuestos
-            </h1>
-            <p className="mt-3 text-slate-600">
-              Crea y gestiona presupuestos para tus clientes.
-            </p>
-          </div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+  <select
+    value={filtroEstado}
+    onChange={(e) => setFiltroEstado(e.target.value)}
+    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-500"
+  >
+    <option value="todos">Todos</option>
+    <option value="borrador">Borrador</option>
+    <option value="enviado">Enviado</option>
+    <option value="aceptado">Aceptado</option>
+    <option value="rechazado">Rechazado</option>
+  </select>
 
-          <button
-            onClick={abrirNuevoPresupuesto}
-            className="rounded-2xl bg-red px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-          >
-            + Nuevo presupuesto
-          </button>
-        </div>
+  <button
+  onClick={abrirNuevoPresupuesto}
+  className="rounded-2xl bg-red px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+>
+  + Nuevo presupuesto
+</button>
+</div>
 
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -865,7 +870,7 @@ Gracias por confiar en ${negocio}.`
           </div>
         )}
 
-        {!loading && presupuestos.length === 0 && !error && (
+        {!loading && presupuestosFiltrados.length === 0 && !error && (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
             <h2 className="text-xl font-semibold text-slate-900">
               No hay presupuestos todavía
@@ -876,7 +881,7 @@ Gracias por confiar en ${negocio}.`
           </div>
         )}
 
-        {!loading && presupuestos.length > 0 && (
+        {!loading && presupuestosFiltrados.length > 0 && (
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
@@ -890,7 +895,7 @@ Gracias por confiar en ${negocio}.`
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                  {presupuestos.map((presupuesto) => (
+                  {presupuestosFiltrados.map((presupuesto) => (
                     <tr key={presupuesto.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-medium text-slate-900">
                         {presupuesto.clientes?.nombre || '-'}
