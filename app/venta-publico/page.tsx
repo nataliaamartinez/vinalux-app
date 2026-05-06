@@ -67,7 +67,7 @@ export default function VentaPublicoPage() {
       heightLeft -= pageHeight
     }
 
-    pdf.save('venta-publico.pdf')
+    pdf.save(modoCatalogo ? 'catalogo-productos.pdf' : 'venta-publico.pdf')
   }
 
   return (
@@ -87,14 +87,14 @@ export default function VentaPublicoPage() {
             onClick={sacarPdfVenta}
             className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
           >
-            Sacar PDF de venta
+            Sacar PDF de {modoCatalogo ? 'catálogo' : 'venta'}
           </button>
 
           <button
-            onClick={() => setModoCatalogo(!modoCatalogo)}
+            onClick={() => setModoCatalogo((actual) => !actual)}
             className="rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white hover:bg-pink-700"
           >
-            Hacer catálogo
+            {modoCatalogo ? 'Ver venta' : 'Hacer catálogo'}
           </button>
         </div>
       </div>
