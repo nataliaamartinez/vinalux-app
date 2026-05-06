@@ -174,29 +174,29 @@ export default function PresupuestosPage() {
     }))
   }
 
-  function cambiarItem(index: number, campo: keyof ItemFormType, valor: string) {
-    setItems((prev) => {
-      const nuevos = [...prev]
+ function cambiarItem(index: number, campo: keyof ItemFormType, valor: string) {
+  setItems((prev) => {
+    const nuevos = [...prev]
 
-      nuevos[index] = {
-        ...nuevos[index],
-        [campo]: valor,
-      }
+    nuevos[index] = {
+      ...nuevos[index],
+      [campo]: valor,
+    }
 
-      if (campo === 'producto_id') {
-        const producto = productos.find((p) => p.id === valor)
+    if (campo === 'producto_id') {
+      const producto = productos.find((p) => p.id === valor)
 
-        nuevos[index].precio =
-          producto?.precio_venta !== null && producto?.precio_venta !== undefined
-            ? String(producto.precio_venta)
-            : ''
+      nuevos[index].precio =
+        producto?.precio_venta != null
+          ? producto.precio_venta.toString()
+          : ''
 
-        nuevos[index].imagen_url = producto?.imagen_url || ''
-      }
+      nuevos[index].imagen_url = producto?.imagen_url || ''
+    }
 
-      return nuevos
-    })
-  }
+    return nuevos
+  })
+}
 
   function añadirProducto() {
     setItems((prev) => [...prev, { ...initialItem }])
