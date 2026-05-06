@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import {
   Box,
-  Wallet,
   ShoppingCart,
   AlertTriangle,
   TrendingUp,
@@ -44,6 +43,7 @@ type Producto = {
   nombre: string | null
   stock: number | null
   stock_minimo: number | null
+  categoria: string | null
 }
 
 export default function DashboardPage() {
@@ -53,6 +53,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [mostrarCategoria, setMostrarCategoria] = useState(false)
+  const [nuevaCategoria, setNuevaCategoria] = useState('')
+  const [categoriaFiltro, setCategoriaFiltro] = useState('todas')
+  const [categoriasExtra, setCategoriasExtra] = useState<string[]>([])
+
   async function cargarDatos() {
     setLoading(true)
     setError(null)
@@ -60,8 +65,7 @@ export default function DashboardPage() {
     const [pedidosRes, finanzasRes, productosRes] = await Promise.all([
       supabase
         .from('pedidos')
-        .select(
-          `
+        .select(`
           id,
           numero_pedido,
           cantidad,
@@ -72,15 +76,13 @@ export default function DashboardPage() {
           created_at,
           clientes(nombre),
           productos(nombre)
-        `
-        )
+        `)
         .order('created_at', { ascending: false })
         .limit(8),
 
       supabase
         .from('finanzas')
-        .select(
-          `
+        .select(`
           id,
           tipo,
           importe,
@@ -90,22 +92,22 @@ export default function DashboardPage() {
           cliente_proveedor,
           estado,
           created_at
-        `
-        )
+        `)
         .order('fecha', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(8),
 
       supabase
         .from('productos')
-        .select('id, nombre, stock, stock_minimo')
+        .select('id, nombre, stock, stock_minimo, categoria')
         .order('nombre'),
     ])
 
     if (pedidosRes.error) {
       setError(pedidosRes.error.message)
     } else {
-setPedidos((pedidosRes.data as any[]) || [])    }
+      setPedidos((pedidosRes.data as Pedido[]) || [])
+    }
 
     if (finanzasRes.error) {
       setError(finanzasRes.error.message)
@@ -145,13 +147,29 @@ setPedidos((pedidosRes.data as any[]) || [])    }
     return (cantidad ?? 0) * (precioVenta ?? 0)
   }
 
+  function crearCategoria() {
+    const categoria = nuevaCategoria.trim()
+
+    if (!categoria) return
+
+    setCategoriasExtra((prev) =>
+      prev.includes(categoria) ? prev : [...prev, categoria]
+    )
+
+    setCategoriaFiltro(categoria)
+    setNuevaCategoria('')
+    setMostrarCategoria(false)
+  }
+
+  const categorias = useMemo(() => {
+    const categoriasProductos = productos
+      .map((producto) => producto.categoria)
+      .filter((categoria): categoria is string => Boolean(categoria))
+
+    return Array.from(new Set([...categoriasProductos, ...categoriasExtra])).sort()
+  }, [productos, categoriasExtra])
+
   const resumen = useMemo(() => {
-    const totalPedidos = pedidos.length
-
-    const pedidosPendientes = pedidos.filter(
-      (pedido) => pedido.estado === 'pendiente'
-    ).length
-
     const ingresos = finanzas
       .filter((movimiento) => movimiento.tipo === 'ingreso')
       .reduce((acc, movimiento) => acc + (movimiento.importe ?? 0), 0)
@@ -160,8 +178,6 @@ setPedidos((pedidosRes.data as any[]) || [])    }
       .filter((movimiento) => movimiento.tipo === 'gasto')
       .reduce((acc, movimiento) => acc + (movimiento.importe ?? 0), 0)
 
-    const beneficioNeto = ingresos - gastos
-
     const productosStockBajo = productos.filter((producto) => {
       const stock = producto.stock ?? 0
       const stockMinimo = producto.stock_minimo ?? 0
@@ -169,11 +185,13 @@ setPedidos((pedidosRes.data as any[]) || [])    }
     }).length
 
     return {
-      totalPedidos,
-      pedidosPendientes,
+      totalPedidos: pedidos.length,
+      pedidosPendientes: pedidos.filter(
+        (pedido) => pedido.estado === 'pendiente'
+      ).length,
       ingresos,
       gastos,
-      beneficioNeto,
+      beneficioNeto: ingresos - gastos,
       productosStockBajo,
     }
   }, [pedidos, finanzas, productos])
@@ -181,17 +199,24 @@ setPedidos((pedidosRes.data as any[]) || [])    }
   const productosConStockBajo = useMemo(() => {
     return productos
       .filter((producto) => {
+        if (
+          categoriaFiltro !== 'todas' &&
+          producto.categoria !== categoriaFiltro
+        ) {
+          return false
+        }
+
         const stock = producto.stock ?? 0
         const stockMinimo = producto.stock_minimo ?? 0
         return stock <= stockMinimo
       })
       .sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0))
       .slice(0, 6)
-  }, [productos])
+  }, [productos, categoriaFiltro])
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
-      <div className="">
+      <div>
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Vinalux</p>
@@ -208,14 +233,48 @@ setPedidos((pedidosRes.data as any[]) || [])    }
             >
               Ver pedidos
             </Link>
+
             <Link
               href="/finanzas"
               className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Ver finanzas
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setMostrarCategoria(!mostrarCategoria)}
+              className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              Añadir categoría
+            </button>
           </div>
         </div>
+
+        {mostrarCategoria && (
+          <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Nueva categoría
+            </h2>
+
+            <div className="mt-4 flex flex-col gap-3 md:flex-row">
+              <input
+                value={nuevaCategoria}
+                onChange={(e) => setNuevaCategoria(e.target.value)}
+                placeholder="Ejemplo: Vinos tintos"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-900"
+              />
+
+              <button
+                type="button"
+                onClick={crearCategoria}
+                className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Crear
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -429,7 +488,9 @@ setPedidos((pedidosRes.data as any[]) || [])    }
                         <tr>
                           <th className="px-6 py-4 font-semibold">Fecha</th>
                           <th className="px-6 py-4 font-semibold">Tipo</th>
-                          <th className="px-6 py-4 font-semibold">Descripción</th>
+                          <th className="px-6 py-4 font-semibold">
+                            Descripción
+                          </th>
                           <th className="px-6 py-4 font-semibold">Importe</th>
                         </tr>
                       </thead>
@@ -472,6 +533,26 @@ setPedidos((pedidosRes.data as any[]) || [])    }
               </div>
 
               <div>
+                <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Filtrar productos
+                  </h2>
+
+                  <select
+                    value={categoriaFiltro}
+                    onChange={(e) => setCategoriaFiltro(e.target.value)}
+                    className="mt-4 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900"
+                  >
+                    <option value="todas">Todas las categorías</option>
+
+                    {categorias.map((categoria) => (
+                      <option key={categoria} value={categoria}>
+                        {categoria}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
                     <div>
@@ -508,6 +589,9 @@ setPedidos((pedidosRes.data as any[]) || [])    }
                           <div>
                             <p className="font-semibold text-slate-900">
                               {producto.nombre || '-'}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              Categoría: {producto.categoria || 'Sin categoría'}
                             </p>
                             <p className="mt-1 text-sm text-slate-500">
                               Stock mínimo: {producto.stock_minimo ?? 0}
@@ -547,18 +631,21 @@ setPedidos((pedidosRes.data as any[]) || [])    }
                     >
                       Ir a pedidos
                     </Link>
+
                     <Link
                       href="/gastos"
                       className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                       Ir a gastos
                     </Link>
+
                     <Link
                       href="/finanzas"
                       className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                       Ir a finanzas
                     </Link>
+
                     <Link
                       href="/productos"
                       className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
