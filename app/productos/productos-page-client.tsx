@@ -248,7 +248,7 @@ const [categorias, setCategorias] = useState<string[]>(categoriasDisponibles)
   const [deleteTarget, setDeleteTarget] = useState<Producto | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletingProveedor, setDeletingProveedor] = useState(false)
-
+const [estadoFiltro, setEstadoFiltro] = useState('')
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string>('')
 
@@ -390,6 +390,7 @@ async function cargarProductos(showRefreshingMessage = false) {
     setBusqueda('')
     setCategoriaFiltro('')
     setProveedorFiltro('')
+    setEstadoFiltro('')
   }
 
   function handleImagenChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -629,6 +630,16 @@ async function cargarProductos(showRefreshingMessage = false) {
       const proveedor = normalizarTexto(producto.proveedor)
       const referencia = normalizarTexto(producto.referencia)
 
+      const sinCategoria = !producto.categoria || !producto.categoria.trim()
+const sinPrecioCompra = !producto.precio_compra || producto.precio_compra <= 0
+const sinPrecioVenta = !producto.precio_venta || producto.precio_venta <= 0
+
+const coincideEstado =
+  !estadoFiltro ||
+  (estadoFiltro === 'sin_categoria' && sinCategoria) ||
+  (estadoFiltro === 'sin_precio_compra' && sinPrecioCompra) ||
+  (estadoFiltro === 'sin_precio_venta' && sinPrecioVenta)
+
       const coincideBusqueda =
         !texto ||
         nombre.includes(texto) ||
@@ -642,9 +653,9 @@ async function cargarProductos(showRefreshingMessage = false) {
       const coincideProveedor =
         !proveedorSeleccionado || proveedor === proveedorSeleccionado
 
-      return coincideBusqueda && coincideCategoria && coincideProveedor
+      return coincideBusqueda && coincideCategoria && coincideProveedor && coincideEstado
     })
-  }, [busqueda, categoriaFiltro, proveedorFiltro, productos])
+  },  [busqueda, categoriaFiltro, proveedorFiltro, estadoFiltro, productos])
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -745,8 +756,8 @@ async function cargarProductos(showRefreshingMessage = false) {
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-4 md:items-end">
-            <div>
+<div className="grid gap-4 md:grid-cols-5 md:items-end">
+              <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Filtrar por categoría
               </label>
@@ -781,7 +792,21 @@ async function cargarProductos(showRefreshingMessage = false) {
                 ))}
               </select>
             </div>
-
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    Filtrar incompletos
+  </label>
+  <select
+    value={estadoFiltro}
+    onChange={(e) => setEstadoFiltro(e.target.value)}
+    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+  >
+    <option value="">Todos los productos</option>
+    <option value="sin_categoria">Sin categoría</option>
+    <option value="sin_precio_compra">Sin precio de compra</option>
+    <option value="sin_precio_venta">Sin precio de venta</option>
+  </select>
+</div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Buscar producto
