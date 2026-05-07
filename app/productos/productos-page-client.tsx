@@ -18,6 +18,10 @@ type Producto = {
   stock: number | null
   stock_minimo: number | null
 }
+type Categoria = {
+  id: string
+  nombre: string
+}
 
 type FormDataType = {
   nombre: string
@@ -224,6 +228,7 @@ export default function ProductosPageClient() {
   const fileExcelRef = useRef<HTMLInputElement | null>(null)
 
   const [productos, setProductos] = useState<Producto[]>([])
+  const [categorias, setCategorias] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingText, setLoadingText] = useState('Cargando productos...')
   const [error, setError] = useState<string | null>(null)
@@ -247,28 +252,49 @@ export default function ProductosPageClient() {
   const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string>('')
 
-  async function cargarProductos(showRefreshingMessage = false) {
-    setLoading(true)
-    setError(null)
+async function cargarProductos(showRefreshingMessage = false) {
+  setLoading(true)
+  setError(null)
 
-    setLoadingText(
-      showRefreshingMessage ? 'Actualizando productos...' : 'Cargando productos...'
-    )
+  setLoadingText(
+    showRefreshingMessage ? 'Actualizando productos...' : 'Cargando productos...'
+  )
 
-    const { data, error } = await supabase
+  const [productosRes, categoriasRes] = await Promise.all([
+    supabase
       .from('productos')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }),
 
-    if (error) {
-      setError(error.message)
-      setProductos([])
-    } else {
-      setProductos((data as Producto[]) || [])
-    }
+    supabase
+      .from('categorias')
+      .select('id, nombre')
+      .order('nombre'),
+  ])
 
-    setLoading(false)
+  if (productosRes.error) {
+    setError(productosRes.error.message)
+    setProductos([])
+  } else {
+    setProductos((productosRes.data as Producto[]) || [])
   }
+
+  if (categoriasRes.error) {
+    setError(categoriasRes.error.message)
+    setCategorias(categoriasDisponibles)
+  } else {
+    const categoriasBase = categoriasDisponibles
+    const categoriasSupabase = ((categoriasRes.data as Categoria[]) || []).map(
+      (categoria) => categoria.nombre
+    )
+
+    setCategorias(
+      Array.from(new Set([...categoriasBase, ...categoriasSupabase])).sort()
+    )
+  }
+
+  setLoading(false)
+}
 
   function mostrarToast(message: string, type: 'success' | 'error') {
     setToast({ message, type })
@@ -325,9 +351,9 @@ export default function ProductosPageClient() {
     const categoriaNormalizada = normalizarCategoria(producto.categoria)
 
     const categoriaFormulario =
-      categoriasDisponibles.find(
-        (cat) => normalizarCategoria(cat) === categoriaNormalizada
-      ) || ''
+  categorias.find(
+    (cat) => normalizarCategoria(cat) === categoriaNormalizada
+  ) || producto.categoria || ''
 
     setEditingId(producto.id)
     setFormData({
@@ -729,8 +755,8 @@ export default function ProductosPageClient() {
                 className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               >
                 <option value="">Todas las categorías</option>
-                {categoriasDisponibles.map((categoria) => (
-                  <option key={categoria} value={categoria}>
+{categorias.map((categoria) => (
+                    <option key={categoria} value={categoria}>
                     {categoria}
                   </option>
                 ))}
@@ -845,8 +871,8 @@ export default function ProductosPageClient() {
                   className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 >
                   <option value="">Selecciona una categoría</option>
-                  {categoriasDisponibles.map((categoria) => (
-                    <option key={categoria} value={categoria}>
+{categorias.map((categoria) => (
+                      <option key={categoria} value={categoria}>
                       {categoria}
                     </option>
                   ))}
