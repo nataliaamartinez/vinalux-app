@@ -228,7 +228,7 @@ export default function ProductosPageClient() {
   const fileExcelRef = useRef<HTMLInputElement | null>(null)
 
   const [productos, setProductos] = useState<Producto[]>([])
-  const [categorias, setCategorias] = useState<string[]>([])
+const [categorias, setCategorias] = useState<string[]>(categoriasDisponibles)
   const [loading, setLoading] = useState(true)
   const [loadingText, setLoadingText] = useState('Cargando productos...')
   const [error, setError] = useState<string | null>(null)
@@ -280,9 +280,10 @@ async function cargarProductos(showRefreshingMessage = false) {
   }
 
   if (categoriasRes.error) {
-    setError(categoriasRes.error.message)
-    setCategorias(categoriasDisponibles)
-  } else {
+  console.error('Error cargando categorías:', categoriasRes.error)
+  setError(`Error cargando categorías: ${categoriasRes.error.message}`)
+  setCategorias(categoriasDisponibles)
+} else {
     const categoriasBase = categoriasDisponibles
     const categoriasSupabase = ((categoriasRes.data as Categoria[]) || []).map(
       (categoria) => categoria.nombre
