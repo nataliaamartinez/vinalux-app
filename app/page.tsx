@@ -46,67 +46,81 @@ type Producto = {
   categoria: string | null
 }
 
+type Categoria = {
+  id: string
+  nombre: string
+  created_at?: string | null
+}
+
 export default function DashboardPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([])
   const [finanzas, setFinanzas] = useState<MovimientoFinanza[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
+  const [categoriasExtra, setCategoriasExtra] = useState<Categoria[]>([])
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [mostrarCategoria, setMostrarCategoria] = useState(false)
   const [nuevaCategoria, setNuevaCategoria] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas')
-  const [categoriasExtra, setCategoriasExtra] = useState<string[]>([])
 
   async function cargarDatos() {
     setLoading(true)
     setError(null)
 
-    const [pedidosRes, finanzasRes, productosRes] = await Promise.all([
-      supabase
-        .from('pedidos')
-        .select(`
-          id,
-          numero_pedido,
-          cantidad,
-          precio_venta,
-          estado,
-          estado_pago,
-          fecha_entrega,
-          created_at,
-          clientes(nombre),
-          productos(nombre)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(8),
+    const [pedidosRes, finanzasRes, productosRes, categoriasRes] =
+      await Promise.all([
+        supabase
+          .from('pedidos')
+          .select(`
+            id,
+            numero_pedido,
+            cantidad,
+            precio_venta,
+            estado,
+            estado_pago,
+            fecha_entrega,
+            created_at,
+            clientes(nombre),
+            productos(nombre)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(8),
 
-      supabase
-        .from('finanzas')
-        .select(`
-          id,
-          tipo,
-          importe,
-          fecha,
-          descripcion,
-          referencia,
-          cliente_proveedor,
-          estado,
-          created_at
-        `)
-        .order('fecha', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(8),
+        supabase
+          .from('finanzas')
+          .select(`
+            id,
+            tipo,
+            importe,
+            fecha,
+            descripcion,
+            referencia,
+            cliente_proveedor,
+            estado,
+            created_at
+          `)
+          .order('fecha', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(8),
 
-      supabase
-        .from('productos')
-        .select('id, nombre, stock, stock_minimo, categoria')
-        .order('nombre'),
-    ])
+        supabase
+          .from('productos')
+          .select('id, nombre, stock, stock_minimo, categoria')
+          .order('nombre'),
+
+        supabase
+          .from('categorias')
+          .select('id, nombre, created_at')
+          .order('nombre'),
+      ])
 
     if (pedidosRes.error) {
       setError(pedidosRes.error.message)
     } else {
-setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
+      setPedidos((pedidosRes.data as unknown as Pedido[]) || [])
+    }
 
     if (finanzasRes.error) {
       setError(finanzasRes.error.message)
@@ -118,6 +132,12 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
       setError(productosRes.error.message)
     } else {
       setProductos((productosRes.data as Producto[]) || [])
+    }
+
+    if (categoriasRes.error) {
+      setError(categoriasRes.error.message)
+    } else {
+      setCategoriasExtra((categoriasRes.data as Categoria[]) || [])
     }
 
     setLoading(false)
@@ -146,16 +166,36 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
     return (cantidad ?? 0) * (precioVenta ?? 0)
   }
 
-  function crearCategoria() {
-    const categoria = nuevaCategoria.trim()
+  async function crearCategoria() {
+    const nombre = nuevaCategoria.trim()
 
-    if (!categoria) return
+    if (!nombre) return
 
-    setCategoriasExtra((prev) =>
-      prev.includes(categoria) ? prev : [...prev, categoria]
-    )
+    setError(null)
 
-    setCategoriaFiltro(categoria)
+    const { data, error } = await supabase
+      .from('categorias')
+      .insert({ nombre })
+      .select('id, nombre, created_at')
+      .single()
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    setCategoriasExtra((prev) => {
+      const existe = prev.some(
+        (categoria) =>
+          categoria.nombre.toLowerCase() === nombre.toLowerCase()
+      )
+
+      if (existe) return prev
+
+      return [...prev, data as Categoria]
+    })
+
+    setCategoriaFiltro(nombre)
     setNuevaCategoria('')
     setMostrarCategoria(false)
   }
@@ -165,7 +205,13 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
       .map((producto) => producto.categoria)
       .filter((categoria): categoria is string => Boolean(categoria))
 
-    return Array.from(new Set([...categoriasProductos, ...categoriasExtra])).sort()
+    const categoriasCreadas = categoriasExtra.map(
+      (categoria) => categoria.nombre
+    )
+
+    return Array.from(
+      new Set([...categoriasProductos, ...categoriasCreadas])
+    ).sort()
   }, [productos, categoriasExtra])
 
   const resumen = useMemo(() => {
@@ -215,19 +261,18 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="mb-6 rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-sm">
+        <h2 className="text-lg font-semibold">Tarifas de estampación</h2>
 
-<div className="mb-6 rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-sm">
-  <h2 className="text-lg font-semibold">Tarifas de estampación</h2>
-
-  <div className="mt-3 flex flex-col gap-2 text-sm">
-    <p>
-      🟢 Estampación grande: <span className="font-bold">8,50€</span>
-    </p>
-    <p>
-      🔵 Estampación chica: <span className="font-bold">6,50€</span>
-    </p>
-  </div>
-</div>
+        <div className="mt-3 flex flex-col gap-2 text-sm">
+          <p>
+            🟢 Estampación grande: <span className="font-bold">8,50€</span>
+          </p>
+          <p>
+            🔵 Estampación chica: <span className="font-bold">6,50€</span>
+          </p>
+        </div>
+      </div>
 
       <div>
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -448,7 +493,9 @@ setPedidos((pedidosRes.data as unknown as Pedido[]) || [])    }
                             <td className="px-6 py-4">
                               {pedido.productos?.nombre || '-'}
                             </td>
-                            <td className="px-6 py-4">{pedido.estado || '-'}</td>
+                            <td className="px-6 py-4">
+                              {pedido.estado || '-'}
+                            </td>
                             <td className="px-6 py-4">
                               <span
                                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
