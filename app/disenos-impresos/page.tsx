@@ -14,6 +14,7 @@ export default function DisenosImpresosPage() {
   const [disenos, setDisenos] = useState<Diseno[]>([])
   const [loading, setLoading] = useState(true)
   const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
 
   useEffect(() => {
     cargar()
@@ -34,6 +35,37 @@ export default function DisenosImpresosPage() {
     setLoading(false)
   }
 
+  async function subirDiseno(file: File) {
+    setSubiendo(true)
+
+    const fileName = `${Date.now()}-${file.name}`
+
+    // 1. SUBIR A STORAGE
+    const { error } = await supabase.storage
+      .from('disenos')
+      .upload(fileName, file)
+
+    if (error) {
+      alert('Error subiendo imagen')
+      setSubiendo(false)
+      return
+    }
+
+    // 2. URL PUBLICA
+    const { data: publicUrl } = supabase.storage
+      .from('disenos')
+      .getPublicUrl(fileName)
+
+    // 3. GUARDAR EN BD
+    await supabase.from('disenos_impresos').insert({
+      nombre: file.name,
+      imagen_url: publicUrl.publicUrl,
+    })
+
+    setSubiendo(false)
+    cargar()
+  }
+
   if (loading) {
     return (
       <div className="p-10 text-slate-400">
@@ -51,6 +83,22 @@ export default function DisenosImpresosPage() {
       <p className="mt-2 text-slate-400">
         Catálogo visual de todos los diseños disponibles para impresión.
       </p>
+
+      {/* UPLOAD */}
+      <div className="mt-6">
+        <label className="cursor-pointer inline-block rounded-xl bg-sky-500 px-4 py-2 text-white hover:bg-sky-600">
+          {subiendo ? 'Subiendo...' : 'Subir diseño'}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) subirDiseno(file)
+            }}
+          />
+        </label>
+      </div>
 
       {/* GALERÍA */}
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
