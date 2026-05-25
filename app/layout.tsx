@@ -13,6 +13,7 @@ import {
   Receipt,
 } from 'lucide-react'
 import SidebarLink from '@/components/sidebar-link'
+import { Image } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Vinalux',
@@ -93,6 +94,10 @@ export default function RootLayout({
                   <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
                     Venta al Publico
                   </SidebarLink>
+                  <SidebarLink href="/disenos-impresos" icon={<Image size={18} />}>
+  Diseños impresos
+</SidebarLink>
+
                 </nav>
               </details>
             </div>
@@ -128,6 +133,9 @@ export default function RootLayout({
                 <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
                   Venta Al Publico
                 </SidebarLink>
+                <SidebarLink href="/disenos-impresos" icon={<Image size={18} />}>
+  Diseños impresos
+</SidebarLink>
               </nav>
             </div>
           </aside>
