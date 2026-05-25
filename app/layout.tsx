@@ -11,9 +11,9 @@ import {
   Sparkles,
   Wallet,
   Receipt,
+  Image,
 } from 'lucide-react'
 import SidebarLink from '@/components/sidebar-link'
-import { Image } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Vinalux',
