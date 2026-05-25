@@ -714,6 +714,26 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 </div>
+
+<div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h2 className="text-lg font-semibold text-slate-900">
+    Diseños impresos
+  </h2>
+
+  <p className="mt-1 text-sm text-slate-500">
+    Accede a todos los diseños listos para impresión.
+  </p>
+
+  <div className="mt-5 grid gap-3">
+    <Link
+      href="/disenos-impresos"
+      className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white text-center transition hover:bg-slate-800"
+    >
+      Ver diseños impresos
+    </Link>
+  </div>
+</div>
+
               </div>
             </div>
           </>
