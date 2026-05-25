@@ -14,7 +14,7 @@ import {
   Image,
 } from 'lucide-react'
 import SidebarLink from '@/components/sidebar-link'
-S
+
 export const metadata: Metadata = {
   title: 'Vinalux',
   description: 'Panel de gestión de Vinalux',
