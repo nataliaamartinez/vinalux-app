@@ -94,7 +94,7 @@ export default function RootLayout({
                   <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
                     Venta al Publico
                   </SidebarLink>
-                  <SidebarLink href="/app/disenos-impresos/page.tsx" icon={<Image size={18} />}>
+                  <SidebarLink href="app/disenos-impresos/" icon={<Image size={18} />}>
   Diseños impresos
 </SidebarLink>
 
@@ -133,7 +133,7 @@ export default function RootLayout({
                 <SidebarLink href="/venta-publico" icon={<FileText size={18} />}>
                   Venta Al Publico
                 </SidebarLink>
-                <SidebarLink href="/app/disenos-impresos/page.tsx" icon={<Image size={18} />}>
+                <SidebarLink href="app/disenos-impresos/" icon={<Image size={18} />}>
   Diseños impresos
 </SidebarLink>
               </nav>
