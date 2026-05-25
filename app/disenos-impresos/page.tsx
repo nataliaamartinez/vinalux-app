@@ -46,7 +46,8 @@ export default function DisenosImpresosPage() {
       .upload(fileName, file)
 
     if (error) {
-      alert('Error subiendo imagen')
+alert(error.message)
+console.log(error)
       setSubiendo(false)
       return
     }
