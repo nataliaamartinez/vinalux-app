@@ -13,6 +13,7 @@ type Diseno = {
 export default function DisenosImpresosPage() {
   const [disenos, setDisenos] = useState<Diseno[]>([])
   const [loading, setLoading] = useState(true)
+  const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null)
 
   useEffect(() => {
     cargar()
@@ -51,6 +52,7 @@ export default function DisenosImpresosPage() {
         Catálogo visual de todos los diseños disponibles para impresión.
       </p>
 
+      {/* GALERÍA */}
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {disenos.map((d) => (
           <div
@@ -62,7 +64,8 @@ export default function DisenosImpresosPage() {
                 <img
                   src={d.imagen_url}
                   alt={d.nombre}
-                  className="h-full w-full object-cover transition group-hover:scale-105"
+                  onClick={() => setImagenSeleccionada(d.imagen_url)}
+                  className="h-full w-full cursor-pointer object-cover transition group-hover:scale-105"
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-slate-400">
@@ -75,10 +78,32 @@ export default function DisenosImpresosPage() {
               <p className="font-semibold text-white">
                 {d.nombre}
               </p>
+
+              {d.imagen_url && (
+                <button
+                  onClick={() => setImagenSeleccionada(d.imagen_url)}
+                  className="mt-2 text-xs text-sky-400 hover:underline"
+                >
+                  Ver grande
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* MODAL */}
+      {imagenSeleccionada && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setImagenSeleccionada(null)}
+        >
+          <img
+            src={imagenSeleccionada}
+            className="max-h-full max-w-full rounded-2xl shadow-2xl"
+          />
+        </div>
+      )}
     </main>
   )
 }
