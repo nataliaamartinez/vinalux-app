@@ -53,15 +53,17 @@ console.log(error)
     }
 
     // 2. URL PUBLICA
-    const { data: publicUrl } = supabase.storage
-      .from('disenos')
-      .getPublicUrl(fileName)
+    const { data } = supabase.storage
+  .from('disenos')
+  .getPublicUrl(fileName)
+
+const url = data.publicUrl
 
     // 3. GUARDAR EN BD
     await supabase.from('disenos_impresos').insert({
-      nombre: file.name,
-      imagen_url: publicUrl.publicUrl,
-    })
+  nombre: file.name,
+  imagen_url: url,
+})
 
     setSubiendo(false)
     cargar()
