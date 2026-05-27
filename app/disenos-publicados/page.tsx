@@ -212,7 +212,7 @@ const generarPDF = async () => {
           const f = e.target.files?.[0]
           if (f) setFile(f)
         }}
-        className="mb-4"
+        className="mb-4 text-white"
       />
 
       {file && (
