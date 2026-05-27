@@ -97,6 +97,9 @@ export default function RootLayout({
                   <SidebarLink href="/disenos-impresos" icon={<Image size={18} />}>
   Diseños impresos
 </SidebarLink>
+<SidebarLink href="/disenos-publicados" icon={<Image size={18} />}>
+  Diseños publicados
+</SidebarLink>
 
                 </nav>
               </details>
@@ -135,6 +138,9 @@ export default function RootLayout({
                 </SidebarLink>
                 <SidebarLink href="/disenos-impresos" icon={<Image size={18} />}>
   Diseños impresos
+</SidebarLink>
+<SidebarLink href="/disenos-publicados" icon={<Image size={18} />}>
+  Diseños publicados
 </SidebarLink>
               </nav>
             </div>
