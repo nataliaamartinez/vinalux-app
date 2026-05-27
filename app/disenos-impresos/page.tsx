@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import jsPDF from 'jspdf'
+import { createPortal } from 'react-dom'
 
 type Diseno = {
   id: string
@@ -172,12 +173,13 @@ export default function DisenosImpresosPage() {
           placeholder="Nombre del diseño"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          className="w-full rounded-xl p-2"
+          className="w-full rounded-xl p-2 text-white"
         />
 
         <input
           type="file"
           accept="image/*"
+          className="text-white"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
         />
 
@@ -212,7 +214,7 @@ export default function DisenosImpresosPage() {
                   className="h-full w-full cursor-pointer object-cover"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-slate-400">
+                <div className="flex h-full items-center justify-center text-slate-400 text-white">
                   Sin imagen
                 </div>
               )}
@@ -226,17 +228,21 @@ export default function DisenosImpresosPage() {
       </div>
 
       {/* MODAL */}
-      {imagenSeleccionada && (
-  <div
-    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-6"
-    onClick={() => setImagenSeleccionada(null)}
-  >
-    <img
-      src={imagenSeleccionada}
-      className="max-h-full max-w-full rounded-2xl shadow-2xl relative z-[10000]"
-    />
-  </div>
-)}
+      {imagenSeleccionada &&
+  typeof window !== 'undefined' &&
+  createPortal(
+    <div
+      className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 p-6"
+      onClick={() => setImagenSeleccionada(null)}
+    >
+      <img
+        src={imagenSeleccionada}
+        className="max-h-full max-w-full rounded-2xl shadow-2xl"
+      />
+    </div>,
+    document.body
+  )
+}
     </main>
   )
 }
