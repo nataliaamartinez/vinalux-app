@@ -35,39 +35,52 @@ export default function DisenosImpresosPage() {
     setLoading(false)
   }
 
-  async function subirDiseno(file: File) {
-    setSubiendo(true)
+ async function subirDiseno(file: File) {
+  setSubiendo(true)
 
-    const fileName = `${Date.now()}-${file.name}`
+  const fileName = `${Date.now()}-${file.name}`
 
-    // 1. SUBIR A STORAGE
-    const { error } = await supabase.storage
-      .from('disenos')
-      .upload(fileName, file)
+  // SUBIR IMAGEN
+  const { error: uploadError } = await supabase.storage
+    .from('disenos')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
 
-    if (error) {
-alert(error.message)
-console.log(error)
-      setSubiendo(false)
-      return
-    }
-
-    // 2. URL PUBLICA
-    const { data } = supabase.storage
-  .from('disenos')
-  .getPublicUrl(fileName)
-
-const url = data.publicUrl
-
-    // 3. GUARDAR EN BD
-    await supabase.from('disenos_impresos').insert({
-  nombre: file.name,
-  imagen_url: url,
-})
-
+  if (uploadError) {
+    alert(uploadError.message)
+    console.log(uploadError)
     setSubiendo(false)
-    cargar()
+    return
   }
+
+  // SACAR URL PÚBLICA
+  const {
+    data: { publicUrl },
+  } = supabase.storage
+    .from('disenos')
+    .getPublicUrl(fileName)
+
+  console.log(publicUrl)
+
+  // GUARDAR EN TABLA
+  const { error: insertError } = await supabase
+    .from('disenos_impresos')
+    .insert({
+      nombre: file.name,
+      imagen_url: publicUrl,
+    })
+
+  if (insertError) {
+    alert(insertError.message)
+    console.log(insertError)
+  }
+
+  setSubiendo(false)
+
+  cargar()
+}
 
   if (loading) {
     return (
