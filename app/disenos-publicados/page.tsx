@@ -1,57 +1,126 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
-type Diseno = {
-  id: string
-  imagen_url: string
-  titulo: string | null
-}
+export default function SubirDisenosPage() {
+  const [loading, setLoading] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [titulo, setTitulo] = useState('')
 
-export default function DisenosPage() {
-  const [disenos, setDisenos] = useState<Diseno[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
-  const fetchDisenos = async () => {
-    const { data, error } = await supabase
-      .from('disenos_publicados')
-      .select('*')
-      .order('created_at', { ascending: false })
+  // 📤 Subir imagen a Storage
+  const uploadImage = async (file: File) => {
+    const fileName = `${Date.now()}-${file.name}`
 
-    if (error) {
-      console.error(error)
-    } else {
-      setDisenos(data || [])
+    const { error: uploadError } = await supabase.storage
+      .from('disenos')
+      .upload(fileName, file)
+
+    if (uploadError) {
+      console.error('Error subiendo imagen:', uploadError)
+      return null
+    }
+
+    const { data } = supabase.storage
+      .from('disenos')
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
+  }
+
+  // 💾 Guardar en base de datos
+  const guardarDiseno = async () => {
+    if (!file) {
+      alert('No has seleccionado ninguna imagen')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const url = await uploadImage(file)
+
+      if (!url) throw new Error('No se pudo obtener la URL')
+
+      const { error } = await supabase
+        .from('disenos_publicados')
+        .insert({
+          imagen_url: url,
+          titulo: titulo || 'Sin título'
+        })
+
+      if (error) {
+        console.error('Error guardando diseño:', error)
+        alert('Error al guardar en base de datos')
+      } else {
+        alert('Diseño subido correctamente ✅')
+
+        setFile(null)
+        setTitulo('')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error subiendo diseño')
     }
 
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchDisenos()
-  }, [])
-
-  if (loading) return <p className="p-6">Cargando...</p>
-
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Diseños publicados 🎨</h1>
+    <div className="max-w-xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">
+        Subir diseño publicado 🎨
+      </h1>
 
-      {/* PINTEREST LAYOUT */}
-      <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
-        {disenos.map((d) => (
-          <div key={d.id} className="mb-4 break-inside-avoid">
-            <img
-              src={d.imagen_url}
-              className="w-full rounded-xl hover:scale-[1.02] transition"
-            />
-            {d.titulo && (
-              <p className="text-sm mt-1 text-gray-600">{d.titulo}</p>
-            )}
-          </div>
-        ))}
-      </div>
+      {/* BOTÓN VER GALERÍA */}
+      <button
+        onClick={() => router.push('/disenos')}
+        className="mb-6 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded w-full"
+      >
+        Ver galería de diseños 🖼️
+      </button>
+
+      {/* TÍTULO */}
+      <input
+        type="text"
+        placeholder="Título del diseño"
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        className="w-full border p-2 rounded mb-4"
+      />
+
+      {/* INPUT FILE */}
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) setFile(f)
+        }}
+        className="mb-4"
+      />
+
+      {/* PREVIEW */}
+      {file && (
+        <img
+          src={URL.createObjectURL(file)}
+          alt="preview"
+          className="w-full rounded mb-4"
+        />
+      )}
+
+      {/* BOTÓN SUBIR */}
+      <button
+        type="button"
+        onClick={guardarDiseno}
+        disabled={loading}
+        className="bg-black text-white px-4 py-2 rounded w-full disabled:opacity-50"
+      >
+        {loading ? 'Subiendo...' : 'Subir diseño'}
+      </button>
     </div>
   )
 }
