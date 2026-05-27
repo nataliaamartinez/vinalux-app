@@ -25,62 +25,70 @@ export default function DisenosImpresosPage() {
 
     const { data, error } = await supabase
       .from('disenos_impresos')
-      .select('id, nombre, imagen_url, created_at')
+      .select('*')
       .order('created_at', { ascending: false })
 
-    if (!error) {
-      setDisenos((data as Diseno[]) || [])
+    if (error) {
+      console.log(error)
+      alert(error.message)
+    } else {
+      setDisenos(data || [])
     }
 
     setLoading(false)
   }
 
- async function subirDiseno(file: File) {
-  setSubiendo(true)
+  async function subirDiseno(file: File) {
+    setSubiendo(true)
 
-  const fileName = `${Date.now()}-${file.name}`
+    const fileName = `${Date.now()}-${file.name}`
 
-  // SUBIR IMAGEN
-  const { error: uploadError } = await supabase.storage
-    .from('disenos')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    })
+    // SUBIR IMAGEN A STORAGE
+    const { error: uploadError } = await supabase.storage
+      .from('disenos')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
 
-  if (uploadError) {
-    alert(uploadError.message)
-    console.log(uploadError)
+    if (uploadError) {
+      console.log(uploadError)
+      alert(uploadError.message)
+      setSubiendo(false)
+      return
+    }
+
+    // OBTENER URL PÚBLICA
+    const {
+      data: { publicUrl },
+    } = supabase.storage
+      .from('disenos')
+      .getPublicUrl(fileName)
+
+    console.log(publicUrl)
+
+    // GUARDAR EN TABLA
+    const { error: insertError } = await supabase
+      .from('disenos_impresos')
+      .insert([
+        {
+          nombre: file.name,
+          imagen_url: publicUrl,
+        },
+      ])
+
+    if (insertError) {
+      console.log(insertError)
+      alert(insertError.message)
+      setSubiendo(false)
+      return
+    }
+
+    // RECARGAR GALERÍA
+    await cargar()
+
     setSubiendo(false)
-    return
   }
-
-  // SACAR URL PÚBLICA
-  const {
-    data: { publicUrl },
-  } = supabase.storage
-    .from('disenos')
-    .getPublicUrl(fileName)
-
-  console.log(publicUrl)
-
-  // GUARDAR EN TABLA
-  const { error: insertError } = await supabase
-    .from('disenos_impresos')
-    .insert({
-      nombre: file.name,
-      imagen_url: publicUrl,
-    })
-
-  if (insertError) {
-    alert(insertError.message)
-    console.log(insertError)
-  }
-
-  setSubiendo(false)
-
-  cargar()
-}
 
   if (loading) {
     return (
@@ -100,17 +108,21 @@ export default function DisenosImpresosPage() {
         Catálogo visual de todos los diseños disponibles para impresión.
       </p>
 
-      {/* UPLOAD */}
+      {/* BOTÓN SUBIR */}
       <div className="mt-6">
-        <label className="cursor-pointer inline-block rounded-xl bg-sky-500 px-4 py-2 text-white hover:bg-sky-600">
+        <label className="inline-block cursor-pointer rounded-xl bg-sky-500 px-4 py-2 text-white hover:bg-sky-600">
           {subiendo ? 'Subiendo...' : 'Subir diseño'}
+
           <input
             type="file"
             accept="image/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
-              if (file) subirDiseno(file)
+
+              if (file) {
+                subirDiseno(file)
+              }
             }}
           />
         </label>
@@ -128,7 +140,9 @@ export default function DisenosImpresosPage() {
                 <img
                   src={d.imagen_url}
                   alt={d.nombre}
-                  onClick={() => setImagenSeleccionada(d.imagen_url)}
+                  onClick={() =>
+                    setImagenSeleccionada(d.imagen_url)
+                  }
                   className="h-full w-full cursor-pointer object-cover transition group-hover:scale-105"
                 />
               ) : (
@@ -145,7 +159,9 @@ export default function DisenosImpresosPage() {
 
               {d.imagen_url && (
                 <button
-                  onClick={() => setImagenSeleccionada(d.imagen_url)}
+                  onClick={() =>
+                    setImagenSeleccionada(d.imagen_url)
+                  }
                   className="mt-2 text-xs text-sky-400 hover:underline"
                 >
                   Ver grande
@@ -164,6 +180,7 @@ export default function DisenosImpresosPage() {
         >
           <img
             src={imagenSeleccionada}
+            alt="Diseño ampliado"
             className="max-h-full max-w-full rounded-2xl shadow-2xl"
           />
         </div>
