@@ -3,11 +3,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 type Diseno = {
   id: string
   imagen_url: string
   titulo: string | null
+}
+
+type Producto = {
+  nombre: string
+  categoria: string | null
+  referencia: string | null
+  precio: number | null
 }
 
 export default function SubirDisenosPage() {
@@ -31,6 +40,38 @@ export default function SubirDisenosPage() {
   useEffect(() => {
     fetchDisenos()
   }, [])
+
+  // 📄 PDF
+  const generarPDF = async () => {
+    const { data: productos, error } = await supabase
+      .from('productos')
+      .select('*')
+
+    if (error || !productos) {
+      alert('Error cargando productos')
+      return
+    }
+
+    const doc = new jsPDF()
+
+    doc.setFontSize(16)
+    doc.text('Listado de Productos', 14, 15)
+
+    const tableData = productos.map((p: Producto) => [
+      p.nombre || '',
+      p.categoria || '',
+      p.referencia || '',
+      p.precio || ''
+    ])
+
+    autoTable(doc, {
+      head: [['Nombre', 'Categoría', 'Referencia', 'Precio']],
+      body: tableData,
+      startY: 25
+    })
+
+    doc.save('productos.pdf')
+  }
 
   // 📤 SUBIR A STORAGE
   const uploadImage = async (file: File) => {
@@ -75,7 +116,7 @@ export default function SubirDisenosPage() {
     if (!error) {
       setFile(null)
       setTitulo('')
-      fetchDisenos() // 🔥 recarga galería sin refrescar
+      fetchDisenos()
     }
 
     setLoading(false)
@@ -84,13 +125,22 @@ export default function SubirDisenosPage() {
   return (
     <div className="max-w-5xl mx-auto p-6">
 
-      {/* 🔘 BOTÓN ARRIBA */}
-      <button
-        onClick={() => router.push('/disenos')}
-        className="mb-6 bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded w-full"
-      >
-        Ver galería en pantalla completa 🖼️
-      </button>
+      {/* 🔘 BOTONES ARRIBA */}
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={() => router.push('/disenos')}
+          className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded w-full"
+        >
+          Ver galería 🖼️
+        </button>
+
+        <button
+          onClick={generarPDF}
+          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+        >
+          Sacar PDF 📄
+        </button>
+      </div>
 
       <h1 className="text-2xl font-bold mb-6">
         Subir diseño publicado 🎨
@@ -130,7 +180,7 @@ export default function SubirDisenosPage() {
         {loading ? 'Subiendo...' : 'Subir diseño'}
       </button>
 
-      {/* 🖼 GALERÍA PINTEREST ABAJO */}
+      {/* 🖼 GALERÍA */}
       <h2 className="text-xl font-bold mb-4 text-white">
         Diseños publicados
       </h2>
