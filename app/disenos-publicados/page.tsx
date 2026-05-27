@@ -202,7 +202,7 @@ const generarPDF = async () => {
         placeholder="Título del diseño"
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
-        className="w-full border p-2 rounded mb-4"
+        className="w-full border p-2 rounded mb-4 text-white"
       />
 
       <input
