@@ -42,7 +42,7 @@ export default function SubirDisenosPage() {
   }, [])
 
   // 📄 PDF
- const generarPDF = async () => {
+const generarPDF = async () => {
   const { data: disenos, error } = await supabase
     .from('disenos_publicados')
     .select('*')
@@ -60,18 +60,13 @@ export default function SubirDisenosPage() {
   let x = 14
   let y = 25
 
-  const imgWidth = 85
-  const imgHeight = 60
-  const gapX = 10
-  const gapY = 10
+  const maxWidth = 85
+  const maxHeight = 70
 
   let column = 0
 
-  for (let i = 0; i < disenos.length; i++) {
-    const d = disenos[i]
-
+  for (const d of disenos) {
     try {
-      // convertir imagen a base64
       const img = await fetch(d.imagen_url)
       const blob = await img.blob()
 
@@ -81,27 +76,40 @@ export default function SubirDisenosPage() {
         reader.readAsDataURL(blob)
       })
 
+      // 🧠 calcular proporción real de la imagen
+      const image = new Image()
+      image.src = base64
+
+      await new Promise((res) => {
+        image.onload = res
+      })
+
+      const ratio = image.width / image.height
+
+      let width = maxWidth
+      let height = maxWidth / ratio
+
+      // limitar altura si es muy grande
+      if (height > maxHeight) {
+        height = maxHeight
+        width = maxHeight * ratio
+      }
+
       const posX = column === 0 ? 14 : 110
 
-      doc.addImage(base64, 'JPEG', posX, y, imgWidth, imgHeight)
+      doc.addImage(base64, 'JPEG', posX, y, width, height)
 
-      // título debajo
+      // título
       doc.setFontSize(10)
-      doc.text(
-        d.titulo || 'Sin título',
-        posX,
-        y + imgHeight + 5
-      )
+      doc.text(d.titulo || 'Sin título', posX, y + height + 5)
 
       column++
 
-      // cambio de fila
       if (column === 2) {
         column = 0
-        y += imgHeight + gapY + 10
+        y += maxHeight + 20
       }
 
-      // nueva página
       if (y > 250) {
         doc.addPage()
         y = 25
@@ -109,13 +117,12 @@ export default function SubirDisenosPage() {
       }
 
     } catch (err) {
-      console.error('Error procesando imagen:', err)
+      console.error('Error:', err)
     }
   }
 
   doc.save('catalogo-disenos.pdf')
 }
-
   // 📤 SUBIR A STORAGE
   const uploadImage = async (file: File) => {
     const fileName = `${Date.now()}-${file.name}`
