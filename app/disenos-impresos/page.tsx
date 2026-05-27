@@ -2,247 +2,253 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import jsPDF from 'jspdf'
-import { createPortal } from 'react-dom'
+import autoTable from 'jspdf-autotable'
 
 type Diseno = {
   id: string
-  nombre: string
-  imagen_url: string | null
-  created_at: string | null
+  imagen_url: string
+  titulo: string | null
 }
 
-export default function DisenosImpresosPage() {
-  const [disenos, setDisenos] = useState<Diseno[]>([])
-  const [loading, setLoading] = useState(true)
-  const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null)
-  const [subiendo, setSubiendo] = useState(false)
+type Producto = {
+  nombre: string
+  categoria: string | null
+  referencia: string | null
+  precio: number | null
+}
+
+export default function SubirDisenosPage() {
+  const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
-  const [nombre, setNombre] = useState('')
+  const [titulo, setTitulo] = useState('')
+  const [disenos, setDisenos] = useState<Diseno[]>([])
 
-  useEffect(() => {
-    cargar()
-  }, [])
+  const router = useRouter()
 
-  async function cargar() {
-    setLoading(true)
-
+  // 📡 TRAER DISEÑOS
+  const fetchDisenos = async () => {
     const { data, error } = await supabase
       .from('disenos_impresos')
       .select('*')
       .order('created_at', { ascending: false })
 
+    if (!error) setDisenos(data || [])
+  }
+
+  useEffect(() => {
+    fetchDisenos()
+  }, [])
+
+  // 📄 PDF
+const generarPDF = async () => {
+  const { data: disenos, error } = await supabase
+    .from('disenos_impresos')
+    .select('*')
+
+  if (error || !disenos) {
+    alert('Error cargando diseños')
+    return
+  }
+
+  const doc = new jsPDF()
+
+  doc.setFontSize(18)
+  doc.text('Catálogo de Diseños', 14, 15)
+
+  let x = 14
+  let y = 25
+
+  const maxWidth = 85
+  const maxHeight = 70
+
+  let column = 0
+
+  for (const d of disenos) {
+    try {
+      const img = await fetch(d.imagen_url)
+      const blob = await img.blob()
+
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+
+      // 🧠 calcular proporción real de la imagen
+      const image = new Image()
+      image.src = base64
+
+      await new Promise((res) => {
+        image.onload = res
+      })
+
+      const ratio = image.width / image.height
+
+      let width = maxWidth
+      let height = maxWidth / ratio
+
+      // limitar altura si es muy grande
+      if (height > maxHeight) {
+        height = maxHeight
+        width = maxHeight * ratio
+      }
+
+      const posX = column === 0 ? 14 : 110
+
+      doc.addImage(base64, 'JPEG', posX, y, width, height)
+
+      // título
+      doc.setFontSize(10)
+      doc.text(d.titulo || 'Sin título', posX, y + height + 5)
+
+      column++
+
+      if (column === 2) {
+        column = 0
+        y += maxHeight + 20
+      }
+
+      if (y > 250) {
+        doc.addPage()
+        y = 25
+        column = 0
+      }
+
+    } catch (err) {
+      console.error('Error:', err)
+    }
+  }
+
+  doc.save('catalogo-disenos.pdf')
+}
+  // 📤 SUBIR A STORAGE
+  const uploadImage = async (file: File) => {
+    const fileName = `${Date.now()}-${file.name}`
+
+    const { error } = await supabase.storage
+      .from('disenos')
+      .upload(fileName, file)
+
     if (error) {
-      console.log(error)
-      alert(error.message)
-    } else {
-      setDisenos(data || [])
+      console.error(error)
+      return null
+    }
+
+    const { data } = supabase.storage
+      .from('disenos')
+      .getPublicUrl(fileName)
+
+    return data.publicUrl
+  }
+
+  // 💾 GUARDAR EN DB
+  const guardarDiseno = async () => {
+    if (!file) return
+
+    setLoading(true)
+
+    const url = await uploadImage(file)
+
+    if (!url) {
+      setLoading(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('disenos_publicados')
+      .insert({
+        imagen_url: url,
+        titulo: titulo || 'Sin título'
+      })
+
+    if (!error) {
+      setFile(null)
+      setTitulo('')
+      fetchDisenos()
     }
 
     setLoading(false)
   }
 
-  async function subirDiseno() {
-    if (!file) return
-
-    setSubiendo(true)
-
-    const fileName = `${Date.now()}-${file.name}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('disenos')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      alert(uploadError.message)
-      setSubiendo(false)
-      return
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('disenos').getPublicUrl(fileName)
-
-    const { error: insertError } = await supabase
-      .from('disenos_impresos')
-      .insert([
-        {
-          nombre: nombre || file.name,
-          imagen_url: publicUrl,
-        },
-      ])
-
-    if (insertError) {
-      alert(insertError.message)
-      setSubiendo(false)
-      return
-    }
-
-    setFile(null)
-    setNombre('')
-    await cargar()
-    setSubiendo(false)
-  }
-
-  const generarPDF = async () => {
-    const doc = new jsPDF()
-
-    doc.setFontSize(18)
-    doc.text('Catálogo de Diseños Impresos', 14, 15)
-
-    let x = 14
-    let y = 25
-
-    const maxWidth = 85
-    const maxHeight = 70
-    let column = 0
-
-    for (const d of disenos) {
-      try {
-        if (!d.imagen_url) continue
-
-        const img = await fetch(d.imagen_url)
-        const blob = await img.blob()
-
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.readAsDataURL(blob)
-        })
-
-        const image = new Image()
-        image.src = base64
-
-        await new Promise((res) => (image.onload = res))
-
-        const ratio = image.width / image.height
-
-        let width = maxWidth
-        let height = maxWidth / ratio
-
-        if (height > maxHeight) {
-          height = maxHeight
-          width = maxHeight * ratio
-        }
-
-        const posX = column === 0 ? 14 : 110
-
-        doc.addImage(base64, 'JPEG', posX, y, width, height)
-        doc.setFontSize(10)
-        doc.text(d.nombre || 'Sin nombre', posX, y + height + 5)
-
-        column++
-
-        if (column === 2) {
-          column = 0
-          y += maxHeight + 20
-        }
-
-        if (y > 250) {
-          doc.addPage()
-          y = 25
-          column = 0
-        }
-      } catch (err) {
-        console.error(err)
-      }
-    }
-
-    doc.save('catalogo-disenos-impresos.pdf')
-  }
-
-  if (loading) {
-    return <div className="p-10 text-slate-400">Cargando diseños...</div>
-  }
-
   return (
-    <main className="p-6 md:p-10">
-      <h1 className="text-3xl font-bold text-white">Diseños impresos</h1>
+    <div className="max-w-5xl mx-auto p-6">
 
-      <p className="mt-2 text-slate-400">
-        Catálogo visual de todos los diseños disponibles para impresión.
-      </p>
-
-      {/* SUBIDA */}
-      <div className="mt-6 space-y-3">
-        <input
-          type="text"
-          placeholder="Nombre del diseño"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          className="w-full rounded-xl p-2 text-white"
-        />
-
-        <input
-          type="file"
-          accept="image/*"
-          className="text-white"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-        />
-
+      {/* 🔘 BOTONES ARRIBA */}
+      <div className="flex gap-3 mb-6">
         <button
-          onClick={subirDiseno}
-          disabled={subiendo}
-          className="rounded-xl bg-sky-500 px-4 py-2 text-white"
+          onClick={() => router.push('/disenos')}
+          className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded w-full"
         >
-          {subiendo ? 'Subiendo...' : 'Subir diseño'}
+          Ver galería 🖼️
         </button>
 
         <button
           onClick={generarPDF}
-          className="ml-3 rounded-xl bg-blue-600 px-4 py-2 text-white"
+          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
         >
-          Generar PDF 📄
+          Sacar PDF 📄
         </button>
       </div>
 
-      {/* GALERÍA */}
-      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {disenos.map((d) => (
-          <div
-            key={d.id}
-            className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg backdrop-blur"
-          >
-            <div className="aspect-square bg-slate-800">
-              {d.imagen_url ? (
-                <img
-                  src={d.imagen_url}
-                  onClick={() => setImagenSeleccionada(d.imagen_url)}
-                  className="h-full w-full cursor-pointer object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-400 text-white">
-                  Sin imagen
-                </div>
-              )}
-            </div>
+      <h1 className="text-2xl font-bold mb-6 text-white">
+        Subir diseño publicado 🎨
+      </h1>
 
-            <div className="p-4">
-              <p className="font-semibold text-white">{d.nombre}</p>
-            </div>
+      {/* FORMULARIO */}
+      <input
+        type="text"
+        placeholder="Título del diseño"
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        className="w-full border p-2 rounded mb-4 text-white"
+      />
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) setFile(f)
+        }}
+        className="mb-4 text-white"
+      />
+
+      {file && (
+        <img
+          src={URL.createObjectURL(file)}
+          className="w-full rounded mb-4"
+        />
+      )}
+
+      <button
+        onClick={guardarDiseno}
+        disabled={loading}
+        className="bg-black text-white px-4 py-2 rounded w-full mb-10 disabled:opacity-50"
+      >
+        {loading ? 'Subiendo...' : 'Subir diseño'}
+      </button>
+
+      {/* 🖼 GALERÍA */}
+      <h2 className="text-xl font-bold mb-4 text-white">
+        Diseños Impresos
+      </h2>
+
+      <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+        {disenos.map((d) => (
+          <div key={d.id} className="mb-4 break-inside-avoid">
+            <img
+              src={d.imagen_url}
+              className="w-full rounded-xl hover:scale-[1.02] transition"
+            />
+            {d.titulo && (
+              <p className="text-sm mt-1">{d.titulo}</p>
+            )}
           </div>
         ))}
       </div>
 
-      {/* MODAL */}
-      {imagenSeleccionada &&
-  typeof window !== 'undefined' &&
-  createPortal(
-    <div
-      className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 p-6"
-      onClick={() => setImagenSeleccionada(null)}
-    >
-      <img
-        src={imagenSeleccionada}
-        className="max-h-full max-w-full rounded-2xl shadow-2xl"
-      />
-    </div>,
-    document.body
-  )
-}
-    </main>
+    </div>
   )
 }
