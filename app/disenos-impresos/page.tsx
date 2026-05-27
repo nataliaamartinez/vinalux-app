@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import jsPDF from 'jspdf'
 
 type Diseno = {
   id: string
@@ -15,6 +16,8 @@ export default function DisenosImpresosPage() {
   const [loading, setLoading] = useState(true)
   const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null)
   const [subiendo, setSubiendo] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [nombre, setNombre] = useState('')
 
   useEffect(() => {
     cargar()
@@ -38,12 +41,13 @@ export default function DisenosImpresosPage() {
     setLoading(false)
   }
 
-  async function subirDiseno(file: File) {
+  async function subirDiseno() {
+    if (!file) return
+
     setSubiendo(true)
 
     const fileName = `${Date.now()}-${file.name}`
 
-    // SUBIR IMAGEN A STORAGE
     const { error: uploadError } = await supabase.storage
       .from('disenos')
       .upload(fileName, file, {
@@ -52,80 +56,145 @@ export default function DisenosImpresosPage() {
       })
 
     if (uploadError) {
-      console.log(uploadError)
       alert(uploadError.message)
       setSubiendo(false)
       return
     }
 
-    // OBTENER URL PÚBLICA
     const {
       data: { publicUrl },
-    } = supabase.storage
-      .from('disenos')
-      .getPublicUrl(fileName)
+    } = supabase.storage.from('disenos').getPublicUrl(fileName)
 
-    console.log(publicUrl)
-
-    // GUARDAR EN TABLA
     const { error: insertError } = await supabase
       .from('disenos_impresos')
       .insert([
         {
-          nombre: file.name,
+          nombre: nombre || file.name,
           imagen_url: publicUrl,
         },
       ])
 
     if (insertError) {
-      console.log(insertError)
       alert(insertError.message)
       setSubiendo(false)
       return
     }
 
-    // RECARGAR GALERÍA
+    setFile(null)
+    setNombre('')
     await cargar()
-
     setSubiendo(false)
   }
 
+  const generarPDF = async () => {
+    const doc = new jsPDF()
+
+    doc.setFontSize(18)
+    doc.text('Catálogo de Diseños Impresos', 14, 15)
+
+    let x = 14
+    let y = 25
+
+    const maxWidth = 85
+    const maxHeight = 70
+    let column = 0
+
+    for (const d of disenos) {
+      try {
+        if (!d.imagen_url) continue
+
+        const img = await fetch(d.imagen_url)
+        const blob = await img.blob()
+
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+
+        const image = new Image()
+        image.src = base64
+
+        await new Promise((res) => (image.onload = res))
+
+        const ratio = image.width / image.height
+
+        let width = maxWidth
+        let height = maxWidth / ratio
+
+        if (height > maxHeight) {
+          height = maxHeight
+          width = maxHeight * ratio
+        }
+
+        const posX = column === 0 ? 14 : 110
+
+        doc.addImage(base64, 'JPEG', posX, y, width, height)
+        doc.setFontSize(10)
+        doc.text(d.nombre || 'Sin nombre', posX, y + height + 5)
+
+        column++
+
+        if (column === 2) {
+          column = 0
+          y += maxHeight + 20
+        }
+
+        if (y > 250) {
+          doc.addPage()
+          y = 25
+          column = 0
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    doc.save('catalogo-disenos-impresos.pdf')
+  }
+
   if (loading) {
-    return (
-      <div className="p-10 text-slate-400">
-        Cargando diseños...
-      </div>
-    )
+    return <div className="p-10 text-slate-400">Cargando diseños...</div>
   }
 
   return (
     <main className="p-6 md:p-10">
-      <h1 className="text-3xl font-bold text-white">
-        Diseños impresos
-      </h1>
+      <h1 className="text-3xl font-bold text-white">Diseños impresos</h1>
 
       <p className="mt-2 text-slate-400">
         Catálogo visual de todos los diseños disponibles para impresión.
       </p>
 
-      {/* BOTÓN SUBIR */}
-      <div className="mt-6">
-        <label className="inline-block cursor-pointer rounded-xl bg-sky-500 px-4 py-2 text-white hover:bg-sky-600">
+      {/* SUBIDA */}
+      <div className="mt-6 space-y-3">
+        <input
+          type="text"
+          placeholder="Nombre del diseño"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          className="w-full rounded-xl p-2"
+        />
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
+
+        <button
+          onClick={subirDiseno}
+          disabled={subiendo}
+          className="rounded-xl bg-sky-500 px-4 py-2 text-white"
+        >
           {subiendo ? 'Subiendo...' : 'Subir diseño'}
+        </button>
 
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-
-              if (file) {
-                subirDiseno(file)
-              }
-            }}
-          />
-        </label>
+        <button
+          onClick={generarPDF}
+          className="ml-3 rounded-xl bg-blue-600 px-4 py-2 text-white"
+        >
+          Generar PDF 📄
+        </button>
       </div>
 
       {/* GALERÍA */}
@@ -133,17 +202,14 @@ export default function DisenosImpresosPage() {
         {disenos.map((d) => (
           <div
             key={d.id}
-            className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg backdrop-blur transition hover:scale-[1.02]"
+            className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg backdrop-blur"
           >
             <div className="aspect-square bg-slate-800">
               {d.imagen_url ? (
                 <img
                   src={d.imagen_url}
-                  alt={d.nombre}
-                  onClick={() =>
-                    setImagenSeleccionada(d.imagen_url)
-                  }
-                  className="h-full w-full cursor-pointer object-cover transition group-hover:scale-105"
+                  onClick={() => setImagenSeleccionada(d.imagen_url)}
+                  className="h-full w-full cursor-pointer object-cover"
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-slate-400">
@@ -153,20 +219,7 @@ export default function DisenosImpresosPage() {
             </div>
 
             <div className="p-4">
-              <p className="font-semibold text-white">
-                {d.nombre}
-              </p>
-
-              {d.imagen_url && (
-                <button
-                  onClick={() =>
-                    setImagenSeleccionada(d.imagen_url)
-                  }
-                  className="mt-2 text-xs text-sky-400 hover:underline"
-                >
-                  Ver grande
-                </button>
-              )}
+              <p className="font-semibold text-white">{d.nombre}</p>
             </div>
           </div>
         ))}
@@ -180,8 +233,7 @@ export default function DisenosImpresosPage() {
         >
           <img
             src={imagenSeleccionada}
-            alt="Diseño ampliado"
-            className="max-h-full max-w-full rounded-2xl shadow-2xl"
+            className="max-h-full max-w-full rounded-2xl"
           />
         </div>
       )}
