@@ -42,7 +42,7 @@ export default function SubirDisenosPage() {
   }, [])
 
   // 📄 PDF
-  const generarPDF = async () => {
+ const generarPDF = async () => {
   const { data: disenos, error } = await supabase
     .from('disenos_publicados')
     .select('*')
@@ -54,40 +54,62 @@ export default function SubirDisenosPage() {
 
   const doc = new jsPDF()
 
-  doc.setFontSize(16)
+  doc.setFontSize(18)
   doc.text('Catálogo de Diseños', 14, 15)
 
+  let x = 14
   let y = 25
 
-  for (const d of disenos) {
-    // título
-    doc.setFontSize(12)
-    doc.text(d.titulo || 'Sin título', 14, y)
+  const imgWidth = 85
+  const imgHeight = 60
+  const gapX = 10
+  const gapY = 10
 
-    y += 5
+  let column = 0
+
+  for (let i = 0; i < disenos.length; i++) {
+    const d = disenos[i]
 
     try {
-      // imagen
+      // convertir imagen a base64
       const img = await fetch(d.imagen_url)
       const blob = await img.blob()
 
-      const reader = new FileReader()
-
       const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
         reader.onloadend = () => resolve(reader.result as string)
         reader.readAsDataURL(blob)
       })
 
-      doc.addImage(base64, 'JPEG', 14, y, 60, 60)
-      y += 70
+      const posX = column === 0 ? 14 : 110
 
-      // salto de página si se pasa
-      if (y > 260) {
-        doc.addPage()
-        y = 20
+      doc.addImage(base64, 'JPEG', posX, y, imgWidth, imgHeight)
+
+      // título debajo
+      doc.setFontSize(10)
+      doc.text(
+        d.titulo || 'Sin título',
+        posX,
+        y + imgHeight + 5
+      )
+
+      column++
+
+      // cambio de fila
+      if (column === 2) {
+        column = 0
+        y += imgHeight + gapY + 10
       }
+
+      // nueva página
+      if (y > 250) {
+        doc.addPage()
+        y = 25
+        column = 0
+      }
+
     } catch (err) {
-      console.error('Error con imagen:', err)
+      console.error('Error procesando imagen:', err)
     }
   }
 
