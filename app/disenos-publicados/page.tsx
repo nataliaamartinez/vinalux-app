@@ -30,30 +30,41 @@ export default function SubirDisenosPage() {
 
   // 💾 Guardar en base de datos
   const guardarDiseno = async () => {
-    if (!file) return
+    console.log('CLICK botón')
 
-    setLoading(true)
-
-    const url = await uploadImage(file)
-
-    if (!url) {
-      setLoading(false)
+    if (!file) {
+      alert('No has seleccionado ninguna imagen')
       return
     }
 
-    const { error } = await supabase
-      .from('disenos_publicados')
-      .insert({
-        imagen_url: url,
-        titulo: titulo || 'Sin título'
-      })
+    setLoading(true)
 
-    if (error) {
-      console.error('Error guardando diseño:', error)
-    } else {
-      alert('Diseño subido correctamente ✅')
-      setFile(null)
-      setTitulo('')
+    try {
+      const url = await uploadImage(file)
+
+      if (!url) {
+        throw new Error('No se pudo obtener la URL')
+      }
+
+      const { error } = await supabase
+        .from('disenos_publicados')
+        .insert({
+          imagen_url: url,
+          titulo: titulo || 'Sin título'
+        })
+
+      if (error) {
+        console.error('Error guardando diseño:', error)
+        alert('Error al guardar en base de datos')
+      } else {
+        alert('Diseño subido correctamente ✅')
+
+        setFile(null)
+        setTitulo('')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error subiendo diseño')
     }
 
     setLoading(false)
@@ -80,6 +91,7 @@ export default function SubirDisenosPage() {
         accept="image/*"
         onChange={(e) => {
           const f = e.target.files?.[0]
+          console.log('FILE seleccionado:', f)
           if (f) setFile(f)
         }}
         className="mb-4"
@@ -96,8 +108,9 @@ export default function SubirDisenosPage() {
 
       {/* BOTÓN */}
       <button
+        type="button"
         onClick={guardarDiseno}
-        disabled={loading || !file}
+        disabled={loading}
         className="bg-black text-white px-4 py-2 rounded w-full disabled:opacity-50"
       >
         {loading ? 'Subiendo...' : 'Subir diseño'}
