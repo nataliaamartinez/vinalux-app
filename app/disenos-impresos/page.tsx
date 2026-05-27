@@ -227,16 +227,16 @@ export default function DisenosImpresosPage() {
 
       {/* MODAL */}
       {imagenSeleccionada && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setImagenSeleccionada(null)}
-        >
-          <img
-            src={imagenSeleccionada}
-            className="max-h-full max-w-full rounded-2xl"
-          />
-        </div>
-      )}
+  <div
+    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-6"
+    onClick={() => setImagenSeleccionada(null)}
+  >
+    <img
+      src={imagenSeleccionada}
+      className="max-h-full max-w-full rounded-2xl shadow-2xl relative z-[10000]"
+    />
+  </div>
+)}
     </main>
   )
 }
