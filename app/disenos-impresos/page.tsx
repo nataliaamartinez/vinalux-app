@@ -218,7 +218,7 @@ export default function DisenosImpresosPage() {
 
       {/* GALERÍA (FIXED) */}
       <h2 className="text-xl font-bold mb-4 text-white">
-        Diseños publicados
+        Diseños Impresos
       </h2>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
