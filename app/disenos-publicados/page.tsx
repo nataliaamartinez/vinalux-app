@@ -43,35 +43,56 @@ export default function SubirDisenosPage() {
 
   // 📄 PDF
   const generarPDF = async () => {
-    const { data: productos, error } = await supabase
-      .from('productos')
-      .select('*')
+  const { data: disenos, error } = await supabase
+    .from('disenos_publicados')
+    .select('*')
 
-    if (error || !productos) {
-      alert('Error cargando productos')
-      return
-    }
-
-    const doc = new jsPDF()
-
-    doc.setFontSize(16)
-    doc.text('Listado de Productos', 14, 15)
-
-    const tableData = productos.map((p: Producto) => [
-      p.nombre || '',
-      p.categoria || '',
-      p.referencia || '',
-      p.precio || ''
-    ])
-
-    autoTable(doc, {
-      head: [['Nombre', 'Categoría', 'Referencia', 'Precio']],
-      body: tableData,
-      startY: 25
-    })
-
-    doc.save('productos.pdf')
+  if (error || !disenos) {
+    alert('Error cargando diseños')
+    return
   }
+
+  const doc = new jsPDF()
+
+  doc.setFontSize(16)
+  doc.text('Catálogo de Diseños', 14, 15)
+
+  let y = 25
+
+  for (const d of disenos) {
+    // título
+    doc.setFontSize(12)
+    doc.text(d.titulo || 'Sin título', 14, y)
+
+    y += 5
+
+    try {
+      // imagen
+      const img = await fetch(d.imagen_url)
+      const blob = await img.blob()
+
+      const reader = new FileReader()
+
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+
+      doc.addImage(base64, 'JPEG', 14, y, 60, 60)
+      y += 70
+
+      // salto de página si se pasa
+      if (y > 260) {
+        doc.addPage()
+        y = 20
+      }
+    } catch (err) {
+      console.error('Error con imagen:', err)
+    }
+  }
+
+  doc.save('catalogo-disenos.pdf')
+}
 
   // 📤 SUBIR A STORAGE
   const uploadImage = async (file: File) => {
